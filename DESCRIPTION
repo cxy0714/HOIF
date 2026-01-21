@@ -1,0 +1,23 @@
+Package: HOIF
+Type: Package
+Title: Higher-Order Influence Functions
+Version: 0.1.0
+Authors@R: 
+    person(given = "Xingyu",
+           family = "Chen",
+           email = "xingyuchen0714@sjtu.edu.cn",
+           role = c("aut", "cre"))
+Description:
+    Tools for computing higher-order U-statistics arising in
+    higher-order influence function (HOIF) estimators.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+    reticulate
+Suggests:
+    knitr,
+    rmarkdown
+SystemRequirements:
+    Python (>= 3.11), Python package 'u-stats', Python package 'torch' (optional)
+RoxygenNote: 7.3.3
