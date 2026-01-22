@@ -94,7 +94,7 @@ Basis_Omega_estimation <- function(Z_k, A, a, Omega_method,
                              is_split = FALSE, split_indices = NULL) {
 
   if (is_split){
-
+    Z_k[split_indices]
   }
 }
 
