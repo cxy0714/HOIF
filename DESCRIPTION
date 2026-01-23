@@ -1,23 +1,41 @@
 Package: HOIF
 Type: Package
-Title: Higher-Order Influence Functions
+Title: Higher Order Influence Function Estimators for Average Treatment Effects
 Version: 0.1.0
-Authors@R: 
-    person(given = "Xingyu",
-           family = "Chen",
-           email = "xingyuchen0714@sjtu.edu.cn",
-           role = c("aut", "cre"))
-Description:
-    Tools for computing higher-order U-statistics arising in
-    higher-order influence function (HOIF) estimators.
+Authors@R: person("Xingyu", "Chen", 
+                  email = "xingyuchen0714@sjtu.edu.cn",
+                  role = c("aut", "cre"),
+                  comment = c(ORCID = "0009-0008-0823-4406"))
+Description: Implements Higher Order Influence Function (HOIF) estimators for
+    Average Treatment Effect (ATE) estimation. The package provides functions
+    to compute HOIF estimators using U-statistics with various basis 
+    transformations (B-splines, Fourier) and supports cross-fitting for
+    improved finite-sample performance. The core U-statistic computation
+    leverages Python's u-stats package via reticulate.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+Depends: 
+    R (>= 4.0.0)
 Imports:
-    reticulate
+    splines,
+    reticulate (>= 1.20)
 Suggests:
+    testthat (>= 3.0.0),
+    corpcor,
+    MASS,
+    sumt,
     knitr,
     rmarkdown
-SystemRequirements:
-    Python (>= 3.11), Python package 'u-stats', Python package 'torch' (optional)
+Config/reticulate:
+    list(
+        packages = list(
+            list(package = "u-stats", pip = TRUE),
+            list(package = "numpy", pip = TRUE),
+            list(package = "torch", pip = TRUE)
+        )
+    )
+SystemRequirements: Python (>= 3.11), u-stats Python package
 RoxygenNote: 7.3.3
+VignetteBuilder: knitr
+

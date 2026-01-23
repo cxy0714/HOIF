@@ -1,590 +1,705 @@
-source("R/hoif_ustat.R")
+#' HOIF Estimators for Average Treatment Effect
+#'
+#' This file implements the Higher Order Influence Function (HOIF) estimators
+#' for Average Treatment Effect (ATE) estimation with nuisance functions.
+#'
+#' @author Xingyu Chen
+#' @date 2026-01-23
 
-# package
-library("SMUT") # for efficient matrix multiplication via eigenMapMatMult()
+# Required packages
+# install.packages(c("splines", "corpcor"))
 
-HOIF <- function(A, Y, X, a_est, b_est_1, b_est_0, order, k,
-                 Z_method = "spline",
-                 Omega_method = "robust",
-                 is_split = FALSE,
-                 is_bootstrap = FALSE,
-                 bootstrap_seed = 42,
-                 bootstrap_number = 1000) {
+#' Convert nested list expression to Einstein notation
+#'
+#' Converts a nested list expression like [[1,2],[2,3],[3,4]] to Einstein
+#' notation like "ab,bc,cd->".
+#'
+#' @param expr_list A list of integer vectors, each of length 2
+#'
+#' @return Character string in Einstein notation
+#' @keywords internal
+#'
+#' @examples
+#' \dontrun{
+#' expr_list_to_einstein(list(c(1,2), c(2,3), c(3,4)))  # Returns "ab,bc,cd->"
+#' }
+expr_list_to_einstein <- function(expr_list) {
+  # Find all unique indices
+  all_indices <- unique(unlist(expr_list))
+  n_unique <- length(all_indices)
 
-  # 参数验证
-  validate_inputs(A, Y, X, a_est, b_est_1,b_est_0, order, k, Z_method, Omega_method,
-                  is_split, is_bootstrap, bootstrap_seed, bootstrap_number)
-
-  n <- length(A)
-
-  Z_k <- Z_transform(k, X, Z_method)
-  e_A <- Epsilon_A(A, a_est = a_est)
-  e_Y <- Epsilon_Y(Y, A, b_est_1 = b_est_1, b_est_0 = b_est_0)
-
-  if (is_split) {
-    split_indices <- sample(1:n, n/2, replace = FALSE)
-    basis <- Basis_Omega_estimation(Z_k = Z_k, A = A,
-                              Omega_method = Omega_method,
-                              is_split = is_split,
-                              split_indices = split_indices)
+  # Create mapping from index to letter
+  # Use letters a-z, then aa, ab, etc. if needed
+  if (n_unique <= 26) {
+    index_to_letter <- setNames(letters[1:n_unique], all_indices)
   } else {
-    basis <- Basis_Omega_estimation(Z_k = Z_k, A = A,
-                              Omega_method = Omega_method)
-  }
-  basis <-
-
-  IIFF <- IIFF_estimation(Omega, Z_k, e_A, e_Y, order, is_split)
-
-  if (is_bootstrap) {
-    set.seed(bootstrap_seed)
-
-    weights <- matrix(
-      sample(1:n, n * bootstrap_number, replace = TRUE),
-      nrow = n,
-      ncol = bootstrap_number
-    )
-
-    IIFF_bootstrap <- list()
-    for (i in 1:bootstrap_number) {
-      IIFF_bootstrap[[i]] <- IIFF_estimation(Omega, Z_k, e_A, e_Y,
-                                             weights = weights[, i], order)
-    }
-    var_bootstrap <- IIFF_var_estimation(IIFF_bootstrap)
+    stop("Too many unique indices (>26) for Einstein notation")
   }
 
+  # Convert each sublist to letter pairs
+  terms <- sapply(expr_list, function(pair) {
+    paste0(index_to_letter[as.character(pair[1])],
+           index_to_letter[as.character(pair[2])])
+  })
 
-  result <- format_results(IIFF, a, is_bootstrap,
-                           if(is_bootstrap) var_bootstrap else NULL)
-
-  return(result)
+  # Combine with commas and add "->"
+  paste0(paste(terms, collapse = ","), "->")
 }
 
 
-format_results <- function(IIFF, a, is_bootstrap, var_est = NULL) {
+#' Compute a Higher-Order U-Statistic
+#'
+#' Computes a higher-order U-statistic given pre-computed kernel matrices
+#' using either an Einstein summation expression or nested list notation.
+#' This function calls Python's u-stats package via reticulate.
+#'
+#' **Note**: This function requires Python and the u-stats package to be installed.
+#' Run \code{setup_hoif()} to install the required dependencies.
+#'
+#' @param tensors A list of numeric matrices/vectors of equal dimensions.
+#' @param expression Either a character string (Einstein notation like "ab,bc->")
+#'        or a nested list (like list(c(1,2), c(2,3))). Can also accept the special
+#'        format list(1, list(1,2), ..., j) from compute_hoif_estimators.
+#' @param backend Character string, either "numpy" or "torch" (default).
+#' @param average Logical; whether to return the averaged U-statistic (default TRUE).
+#'
+#' @return A numeric scalar.
+#'
+#' @examples
+#' \dontrun{
+#' # First, setup the Python environment
+#' setup_hoif()
+#'
+#' # Then use the function
+#' H1 <- matrix(runif(100), 10, 10)
+#' H2 <- matrix(runif(100), 10, 10)
+#' ustat(list(H1, H2), "ab,bc->")
+#' # Or equivalently:
+#' ustat(list(H1, H2), list(c(1,2), c(2,3)))
+#' }
+#'
+#' @export
+ustat <- function(tensors,
+                  expression,
+                  backend = c("torch", "numpy"),
+                  average = TRUE) {
 
-  if (length(a) == 2 && all(a == c(0, 1))) {
-    result <- list(
-      ATE_bias = IIFF$a_1 - IIFF$a_0,
-      Y_1_bias = IIFF$a_1,
-      Y_0_bias = IIFF$a_0
+  # Check if Python environment is available
+  if (!check_python_env()) {
+    stop(
+      "Python environment not properly configured.\n",
+      "Please run: setup_hoif()\n",
+      "Or check setup status with: check_hoif_setup()",
+      call. = FALSE
     )
+  }
 
-    if (is_bootstrap) {
-      result$var_est <- var_est
-      result$se_est <- sqrt(var_est)
+  backend <- match.arg(backend)
+
+  # Check torch availability if requested
+  if (backend == "torch" && !reticulate::py_module_available("torch")) {
+    warning(
+      "Torch backend not available; falling back to numpy.\n",
+      "For faster computation, install torch with: reticulate::py_install('torch')",
+      call. = FALSE
+    )
+    backend <- "numpy"
+  }
+
+  # Import Python modules
+  ustats <- tryCatch({
+    reticulate::import("u_stats", delay_load = TRUE)
+  }, error = function(e) {
+    stop(
+      "Failed to import u_stats module.\n",
+      "Please run: setup_hoif()\n",
+      "Error: ", e$message,
+      call. = FALSE
+    )
+  })
+
+  ustats$set_backend(backend)
+  np <- reticulate::import("numpy")
+
+  # Convert expression if needed
+  if (is.list(expression)) {
+    # Check if all elements are length-2 vectors (nested list format)
+    all_pairs <- all(sapply(expression, function(x) {
+      is.numeric(x) && length(x) == 2
+    }))
+
+    if (all_pairs) {
+      # Already in correct format: list(c(1,2), c(2,3), ...)
+      expression <- expr_list_to_einstein(expression)
+    } else {
+      stop("Expression list format not recognized. Expected list of length-2 vectors.",
+           call. = FALSE)
+    }
+  } else if (!is.character(expression)) {
+    stop("Expression must be either a character string or a nested list", call. = FALSE)
+  }
+
+  # Convert R tensors to numpy arrays
+  tensors <- lapply(tensors, function(x) {
+    if (is.vector(x)) {
+      x <- matrix(x, ncol = 1)
+    }
+    if (!is.matrix(x)) {
+      stop("All elements of 'tensors' must be matrices or vectors.", call. = FALSE)
+    }
+    np$array(x, dtype = "float32")
+  })
+
+  # Call Python ustat function
+  result <- tryCatch({
+    ustats$ustat(
+      tensors = tensors,
+      expression = expression,
+      average = average
+    )
+  }, error = function(e) {
+    stop(
+      "Error computing U-statistic: ", e$message, "\n",
+      "Expression: ", expression,
+      call. = FALSE
+    )
+  })
+
+  # Convert result to R numeric
+  as.numeric(result)
+}
+
+#' Transform covariates to basis functions
+#'
+#' @param X Matrix of covariates (n x p)
+#' @param method Character: "splines" or "fourier"
+#' @param k Integer: dimension of basis expansion
+#' @param degree Integer: degree for B-splines (default 3)
+#' @param period Numeric: period for Fourier basis (default 1)
+#'
+#' @return Matrix Z (n x k) of transformed covariates with intercept
+#' @export
+transform_covariates <- function(X, method = "splines", k = 10,
+                                 degree = 3, period = 1) {
+  if (is.vector(X)) X <- matrix(X, ncol = 1)
+  n <- nrow(X)
+  p <- ncol(X)
+
+  # Scale X to [0, 1] for each dimension
+  X_scaled <- apply(X, 2, function(x) {
+    (x - min(x)) / (max(x) - min(x) + 1e-10)
+  })
+
+  # Initialize with intercept
+  Z <- matrix(1, nrow = n, ncol = 1)
+
+  # Generate basis for each dimension separately
+  if (method == "splines") {
+    for (j in 1:p) {
+      # B-splines basis
+      knots <- seq(0, 1, length.out = k - degree + 1)
+      basis_j <- splines::bs(X_scaled[, j], knots = knots[-c(1, length(knots))],
+                             degree = degree, intercept = FALSE)
+      Z <- cbind(Z, basis_j)
+    }
+  } else if (method == "fourier") {
+    for (j in 1:p) {
+      # Fourier basis: cos and sin terms
+      freq <- 1:floor(k / 2)
+      for (f in freq) {
+        Z <- cbind(Z, cos(2 * pi * f * X_scaled[, j] / period))
+        Z <- cbind(Z, sin(2 * pi * f * X_scaled[, j] / period))
+      }
     }
   } else {
+    stop("Method must be 'splines' or 'fourier'")
+  }
 
-    result <- list(
-      Y_bias = IIFF,
-      a_value = a
+  return(Z)
+}
+
+
+#' Compute residuals for both treatment groups
+#'
+#' @param A Treatment vector (0 or 1)
+#' @param Y Outcome vector
+#' @param mu1 Predicted outcomes under treatment (mu(1, X))
+#' @param mu0 Predicted outcomes under control (mu(0, X))
+#' @param pi Propensity scores
+#'
+#' @return List with R1, r1, R0, r0
+#' @export
+compute_residuals <- function(A, Y, mu1, mu0, pi) {
+  # For a = 1
+  R1 <- A * (Y - mu1)
+  r1 <- 1 - A / pi
+
+  # For a = 0
+  R0 <- (1 - A) * (Y - mu0)
+  r0 <- 1 - (1 - A) / (1 - pi)
+
+  return(list(R1 = R1, r1 = r1, R0 = R0, r0 = r0))
+}
+
+
+#' Compute inverse of weighted Gram matrix
+#'
+#' @param Z Basis matrix (n x k)
+#' @param A Treatment vector
+#' @param method Character: "direct", "nlshrink", or "corpcor"
+#'
+#' @return List with Omega1 and Omega0 (inverse Gram matrices)
+#' @export
+compute_gram_inverse <- function(Z, A, method = "direct") {
+  n <- nrow(Z)
+  k <- ncol(Z)
+
+  # Compute weights
+  s1 <- A  # s_i^1 = A_i
+  s0 <- 1 - A  # s_i^0 = 1 - A_i
+
+  # Weighted Gram matrices using eigenMapMatMult if available
+  if (requireNamespace("sumt", quietly = TRUE)) {
+    # Use faster matrix multiplication
+    Z_weighted1 <- Z * sqrt(s1)
+    Z_weighted0 <- Z * sqrt(s0)
+    G1 <- sumt::eigenMapMatMult(t(Z_weighted1), Z_weighted1) / n
+    G0 <- sumt::eigenMapMatMult(t(Z_weighted0), Z_weighted0) / n
+  } else {
+    # Fallback to standard crossprod
+    G1 <- crossprod(Z * sqrt(s1)) / n
+    G0 <- crossprod(Z * sqrt(s0)) / n
+  }
+
+  # Compute inverses
+  if (method == "direct") {
+    Omega1 <- tryCatch({
+      chol2inv(chol(G1))
+    }, error = function(e) {
+      warning("G1 not positive definite, using Moore-Penrose inverse")
+      MASS::ginv(G1)
+    })
+
+    Omega0 <- tryCatch({
+      chol2inv(chol(G0))
+    }, error = function(e) {
+      warning("G0 not positive definite, using Moore-Penrose inverse")
+      MASS::ginv(G0)
+    })
+  } else if (method == "nlshrink") {
+    if (!requireNamespace("corpcor", quietly = TRUE)) {
+      stop("Package 'corpcor' needed for nlshrink method")
+    }
+    Omega1 <- corpcor::invcov.shrink(G1, verbose = FALSE)
+    Omega0 <- corpcor::invcov.shrink(G0, verbose = FALSE)
+  } else if (method == "corpcor") {
+    if (!requireNamespace("corpcor", quietly = TRUE)) {
+      stop("Package 'corpcor' needed for corpcor method")
+    }
+    Omega1 <- corpcor::pseudoinverse(G1)
+    Omega0 <- corpcor::pseudoinverse(G0)
+  } else {
+    stop("Method must be 'direct', 'nlshrink', or 'corpcor'")
+  }
+
+  return(list(Omega1 = Omega1, Omega0 = Omega0))
+}
+
+
+#' Compute basis projection matrices
+#'
+#' @param Z Basis matrix (n x k)
+#' @param Omega1 Inverse Gram matrix for treatment group
+#' @param Omega0 Inverse Gram matrix for control group
+#'
+#' @return List with B1 and B0 (projection matrices)
+#' @export
+compute_basis_matrix <- function(Z, Omega1, Omega0) {
+  B1 <- Z %*% Omega1 %*% t(Z)
+  B0 <- Z %*% Omega0 %*% t(Z)
+
+  return(list(B1 = B1, B0 = B0))
+}
+
+
+#' Convert nested list expression to Einstein notation
+#'
+#' Converts a nested list expression like [[1,2],[2,3],[3,4]] to Einstein
+#' notation like "ab,bc,cd->".
+#'
+#' @param expr_list A list of integer vectors, each of length 2
+#'
+#' @return Character string in Einstein notation
+#' @keywords internal
+#'
+#' @examples
+#' \dontrun{
+#' expr_list_to_einstein([[1,2],[2,3],[3,4]])  # Returns "ab,bc,cd->"
+#' }
+expr_list_to_einstein <- function(expr_list) {
+  # Find all unique indices
+  all_indices <- unique(unlist(expr_list))
+  n_unique <- length(all_indices)
+
+  # Create mapping from index to letter
+  # Use letters a-z, then aa, ab, etc. if needed
+  if (n_unique <= 26) {
+    index_to_letter <- setNames(letters[1:n_unique], all_indices)
+  } else {
+    stop("Too many unique indices (>26) for Einstein notation")
+  }
+
+  # Convert each sublist to letter pairs
+  terms <- sapply(expr_list, function(pair) {
+    paste0(index_to_letter[as.character(pair[1])],
+           index_to_letter[as.character(pair[2])])
+  })
+
+  # Combine with commas and add "->"
+  paste0(paste(terms, collapse = ","), "->")
+}
+
+
+#' Compute a Higher-Order U-Statistic
+#'
+#' Computes a higher-order U-statistic given pre-computed kernel matrices
+#' using either an Einstein summation expression or nested list notation.
+#' This function calls Python's u-stats package via reticulate.
+#'
+#' @param tensors A list of numeric matrices/vectors of equal dimensions.
+#' @param expression Either a character string (Einstein notation like "ab,bc->")
+#'        or a nested list (like [[1,2],[2,3]]). Can also accept the special
+#'        format list(1, list(1,2), ..., j) from compute_hoif_estimators.
+#' @param backend Character string, either "numpy" or "torch" (default).
+#' @param average Logical; whether to return the averaged U-statistic (default TRUE).
+#'
+#' @return A numeric scalar.
+#'
+#' @examples
+#' \dontrun{
+#' H1 <- matrix(runif(100), 10, 10)
+#' H2 <- matrix(runif(100), 10, 10)
+#' ustat(list(H1, H2), "ab,bc->")
+#' # Or equivalently:
+#' ustat(list(H1, H2), [[1,2],[2,3]])
+#' }
+#'
+#' @export
+ustat <- function(tensors,
+                  expression,
+                  backend = c("torch", "numpy"),
+                  average = TRUE) {
+  backend <- match.arg(backend)
+
+  # Check Python availability
+  if (!reticulate::py_available(initialize = FALSE)) {
+    stop(
+      "Python is required for ustat(). ",
+      "Please install Python and the 'u-stats' package.",
+      call. = FALSE
     )
   }
 
-  class(result) <- "HOIF"
-  return(result)
-}
-
-
-Z_transform <- function(k, X, Z_method) {
-  return( Z_k = X)
-}
-
-Basis_Omega_estimation <- function(Z_k, A, a, Omega_method,
-                             is_split = FALSE, split_indices = NULL) {
-
-  if (is_split){
-    Z_k[split_indices]
+  # Check torch availability
+  if (backend == "torch" && !reticulate::py_module_available("torch")) {
+    warning(
+      "Torch backend not available; falling back to numpy.",
+      call. = FALSE
+    )
+    backend <- "numpy"
   }
+
+  # Import Python modules
+  ustats <- reticulate::import("u_stats", delay_load = TRUE)
+  ustats$set_backend(backend)
+  np <- reticulate::import("numpy")
+
+  # Convert expression if needed
+  if (is.list(expression)) {
+    # Check if it's the special format: list(1, list(1,2), list(2,3), ..., j)
+    # This is the format from compute_hoif_estimators
+
+    # Extract only the list elements (skip single integers)
+    list_elements <- Filter(function(x) is.list(x) && length(x) == 2, expression)
+
+    if (length(list_elements) > 0) {
+      # Convert to Einstein notation
+      expression <- expr_list_to_einstein(list_elements)
+    } else {
+      stop("Expression list format not recognized", call. = FALSE)
+    }
+  } else if (!is.character(expression)) {
+    stop("Expression must be either a character string or a nested list", call. = FALSE)
+  }
+
+  # Convert R tensors to numpy arrays
+  tensors <- lapply(tensors, function(x) {
+    if (is.vector(x)) {
+      # Convert vector to column matrix for consistency
+      x <- matrix(x, ncol = 1)
+    }
+    if (!is.matrix(x)) {
+      stop("All elements of 'tensors' must be matrices or vectors.", call. = FALSE)
+    }
+    np$array(x, dtype = "float32")
+  })
+
+  # Call Python ustat function
+  result <- ustats$ustat(
+    tensors = tensors,
+    expression = expression,
+    average = average
+  )
+
+  # Convert result to R numeric
+  as.numeric(result)
 }
 
-Epsilon_A <- function(A, a_est) {
-    results <- list()
-    results$a_1 <-  1 - A/a_est
-    results$a_0 <-  1 - (1-A)/(1-a_est)
+
+#' Compute HOIF estimators for ATE
+#'
+#' @param residuals List with R1, r1, R0, r0
+#' @param B_matrices List with B1 and B0
+#' @param m Maximum order
+#' @param backend Character: "torch" (default) or "numpy"
+#'
+#' @return List with ATE, HOIF, and IIFF estimates for each order
+#' @export
+compute_hoif_estimators <- function(residuals, B_matrices, m = 5, backend = "torch") {
+  # Initialize storage
+  U1 <- numeric(m)
+  U0 <- numeric(m)
+  IIFF1 <- numeric(m)
+  IIFF0 <- numeric(m)
+  HOIF1 <- numeric(m)
+  HOIF0 <- numeric(m)
+  ATE <- numeric(m)
+
+  # Extract components
+  R1 <- residuals$R1
+  r1 <- residuals$r1
+  R0 <- residuals$R0
+  r0 <- residuals$r0
+  B1 <- B_matrices$B1
+  B0 <- B_matrices$B0
+
+  # Compute U-statistics for each order j = 2 to m
+  for (j in 2:m) {
+    # Construct tensor list T_j^a
+    # T_j^a = list(R^a, B^a, B^a, ..., B^a (j-1 times), r^a)
+    T_j_1 <- list(R1)
+    for (k in 1:(j-1)) {
+      T_j_1[[k+1]] <- B1
+    }
+    T_j_1[[j+1]] <- r1
+
+    T_j_0 <- list(R0)
+    for (k in 1:(j-1)) {
+      T_j_0[[k+1]] <- B0
+    }
+    T_j_0[[j+1]] <- r0
+
+    # Construct expression E_j^a directly as nested list
+    # For j tensors: [[1,2], [2,3], ..., [j-1,j]]
+    # This represents: R_i * B_{i,i1} * B_{i1,i2} * ... * r_{ij}
+    E_j <- vector("list", j)
+    for (k in 1:j) {
+      E_j[[k]] <- c(k, k+1)
+    }
+
+    # Compute U-statistics using ustat function
+    U1[j] <- (-1)^j * ustat(tensors = T_j_1, expression = E_j,
+                            backend = backend, average = TRUE)
+    U0[j] <- (-1)^j * ustat(tensors = T_j_0, expression = E_j,
+                            backend = backend, average = TRUE)
+  }
+
+  # Compute IIFF and HOIF for each order l = 2 to m
+  for (l in 2:m) {
+    # IIFF_l = sum_{j=2}^l C_j^l * U_j
+    # where C_j^l = choose(l-2, l-j)
+    for (j in 2:l) {
+      C_jl <- choose(l - 2, l - j)
+      IIFF1[l] <- IIFF1[l] + C_jl * U1[j]
+      IIFF0[l] <- IIFF0[l] + C_jl * U0[j]
+    }
+
+    # HOIF_l = sum_{j=2}^l IIFF_j
+    HOIF1[l] <- sum(IIFF1[2:l])
+    HOIF0[l] <- sum(IIFF0[2:l])
+
+    # ATE_l = HOIF_l^1 - HOIF_l^0
+    ATE[l] <- HOIF1[l] - HOIF0[l]
+  }
+
+  # Return results for orders 2 to m
+  return(list(
+    ATE = ATE[2:m],
+    HOIF1 = HOIF1[2:m],
+    HOIF0 = HOIF0[2:m],
+    IIFF1 = IIFF1[2:m],
+    IIFF0 = IIFF0[2:m],
+    orders = 2:m
+  ))
+}
+
+
+#' Main function: HOIF estimators for ATE with optional sample splitting
+#'
+#' @param X Covariate matrix (n x p)
+#' @param A Treatment vector (n x 1)
+#' @param Y Outcome vector (n x 1)
+#' @param mu1 Predicted outcomes under treatment
+#' @param mu0 Predicted outcomes under control
+#' @param pi Propensity scores
+#' @param transform_method Character: "splines" or "fourier"
+#' @param k Dimension of basis expansion
+#' @param inverse_method Character: "direct", "nlshrink", or "corpcor"
+#' @param m Maximum order for HOIF
+#' @param sample_split Logical: whether to use sample splitting
+#' @param K Number of folds for sample splitting (if used)
+#' @param backend Character: "torch" (default) or "numpy"
+#' @param seed Random seed for reproducibility (for sample splitting)
+#' @param ... Additional arguments passed to transform_covariates
+#'
+#' @return List with ATE, HOIF, and IIFF estimates
+#' @export
+hoif_ate <- function(X, A, Y, mu1, mu0, pi,
+                     transform_method = "splines",
+                     k = 10,
+                     inverse_method = "direct",
+                     m = 5,
+                     sample_split = FALSE,
+                     K = 5,
+                     backend = "torch",
+                     seed = NULL,
+                     ...) {
+
+  n <- length(Y)
+
+  # Step 1: Transform covariates (done on full data)
+  Z <- transform_covariates(X, method = transform_method, k = k, ...)
+
+  # Step 2: Compute residuals (done on full data)
+  residuals <- compute_residuals(A, Y, mu1, mu0, pi)
+
+  if (!sample_split) {
+    # No sample splitting: standard procedure
+
+    # Step 3: Compute inverse Gram matrices
+    Omega <- compute_gram_inverse(Z, A, method = inverse_method)
+
+    # Step 4: Compute basis matrices
+    B_matrices <- compute_basis_matrix(Z, Omega$Omega1, Omega$Omega0)
+
+    # Step 5: Compute HOIF estimators
+    results <- compute_hoif_estimators(residuals, B_matrices, m, backend)
+
+  } else {
+    # Sample splitting (cross-fitting)
+
+    # Set seed for fold creation if provided
+    if (!is.null(seed)) {
+      set.seed(seed)
+    }
+
+    # Create fold indices
+    fold_indices <- sample(rep(1:K, length.out = n))
+
+    # Storage for fold-specific estimates
+    ATE_folds <- matrix(0, nrow = K, ncol = m - 1)
+    HOIF1_folds <- matrix(0, nrow = K, ncol = m - 1)
+    HOIF0_folds <- matrix(0, nrow = K, ncol = m - 1)
+    IIFF1_folds <- matrix(0, nrow = K, ncol = m - 1)
+    IIFF0_folds <- matrix(0, nrow = K, ncol = m - 1)
+
+    for (j in 1:K) {
+      # Define fold indices
+      I_j <- which(fold_indices == j)
+      I_not_j <- which(fold_indices != j)
+
+      # Step 3: Compute Omega on training set (not I_j)
+      Z_train <- Z[I_not_j, , drop = FALSE]
+      A_train <- A[I_not_j]
+      Omega_j <- compute_gram_inverse(Z_train, A_train, method = inverse_method)
+
+      # Step 4: Compute basis matrices on test set (I_j)
+      Z_test <- Z[I_j, , drop = FALSE]
+      B_matrices_j <- compute_basis_matrix(Z_test, Omega_j$Omega1, Omega_j$Omega0)
+
+      # Step 5: Compute HOIF on test set
+      residuals_j <- list(
+        R1 = residuals$R1[I_j],
+        r1 = residuals$r1[I_j],
+        R0 = residuals$R0[I_j],
+        r0 = residuals$r0[I_j]
+      )
+
+      results_j <- compute_hoif_estimators(residuals_j, B_matrices_j, m, backend)
+
+      # Store results
+      ATE_folds[j, ] <- results_j$ATE
+      HOIF1_folds[j, ] <- results_j$HOIF1
+      HOIF0_folds[j, ] <- results_j$HOIF0
+      IIFF1_folds[j, ] <- results_j$IIFF1
+      IIFF0_folds[j, ] <- results_j$IIFF0
+    }
+
+    # Average across folds
+    results <- list(
+      ATE = colMeans(ATE_folds),
+      HOIF1 = colMeans(HOIF1_folds),
+      HOIF0 = colMeans(HOIF0_folds),
+      IIFF1 = colMeans(IIFF1_folds),
+      IIFF0 = colMeans(IIFF0_folds),
+      orders = 2:m
+    )
+  }
+
+  # Add convergence plot data
+  results$convergence_data <- data.frame(
+    order = results$orders,
+    ATE = results$ATE
+  )
+
+  class(results) <- "hoif_ate"
   return(results)
 }
 
-Epsilon_Y <- function(Y, A, b_est_1, b_est_0) {
-    results <- list()
-    results$a_1 <-  A(Y - b_est_1)
-    results$a_0 <-  (1-A)(Y - b_est_0)
-    return(results)
-}
 
-IIFF_estimation <- function(Omega, Z_k, e_A, e_Y, order, weights = NULL) {
+#' Print method for hoif_ate objects
+#'
+#' @param x Object of class hoif_ate
+#' @param ... Additional arguments (unused)
+#'
+#' @export
+print.hoif_ate <- function(x, ...) {
+  cat("HOIF Estimators for Average Treatment Effect\n")
+  cat("=============================================\n\n")
 
-}
+  cat("Estimates by order:\n")
+  print(data.frame(
+    Order = x$orders,
+    ATE = round(x$ATE, 4),
+    HOIF1 = round(x$HOIF1, 4),
+    HOIF0 = round(x$HOIF0, 4)
+  ))
 
-IIFF_estimation_single <- function(Basis, e_A, e_Y, order, weights = NULL) {
-
-}
-IIFF_var_estimation <- function(IIFF_bootstrap) {
-  # 计算bootstrap方差
-  # 实现
-}
-
-################################################################################
-# Main function using "all" U-statistics definition! i.e. (i_1 \ne i_2 \ne ... \ne i_m)
-# Computes and return 4's estimators from 2-th HOIF to 6-th HOIF estimator. Higher order code is coming soon!
-# Vector_1: a n-dimensional vector containing the treatment residuals (like (Aa -1) )
-# Vector_2: a n-dimensional vector containing the outcome residuals (like (y - b),here no A-weighted)
-# weight : a n-dimensional vector containing the treatment for Weight-ed Gram matrix ( like A or (1-A) )
-# basis: a n*p matrix containing the basis transformations of the confounder.
-# order: number of estimators, default value is 6. only can be 2 or 3 or 4 or 5 or 6.
-# Split: a logistic variable, default value is 0.
-#        Split== 1 means using sample Splitto compute the Omega_hat (eHOIF),
-#        Split== 0 means using whole sample to compute the Omega_hat (sHOIF).
-################################################################################
-compute_HOIF_general_all_U <- function(Vector_1, Vector_2, weight, basis, order = 6, Split= 0) {
-  n <- length(Vector_1)
-
-  if ( Split== 0) {
-    basis_weight <- basis * weight
-    t_basis_weight <- t(basis_weight)
-    Mat <- eigenMapMatMult(t_basis_weight, basis)
-    L <- chol(Mat)
-    Omega_mat <- chol2inv(L) * n
-
-
-    Ker <- eigenMapMatMult(eigenMapMatMult(basis, Omega_mat), t_basis_weight)
-
-    U_list <- list()
-    results <- calculate_u_statistics_six(Vector_1 = Vector_1, Vector_2 = Vector_2, A1 = Ker, A2 = Ker, A3 = Ker, A4 = Ker, A5 = Ker)
-
-    for (i in 2:(order)) {
-      U_list[[paste0("U_", i)]] <- (-1)^i * results[[i-1]]
-    }
-
-
-    BD_list <- Buildingblock_sum_HOIF(U_list, order = order)
-
-    return_list <- c(BD_list, U_list)
-    return_list <- combine_results(sHOIF = return_list)
-  } else if ( Split== 1) {
-
-
-    # Splitindices into two halves: a and b
-    indices <- seq_len(n)
-    set.seed(123)  # For reproducibility
-    indices_a <- sample(indices, round(n / 2))
-    indices_b <- setdiff(indices, indices_a)
-
-    # Splitbasis, weight, Vector_1, Vector_2
-    basis_a <- basis[indices_a, ]
-    basis_b <- basis[indices_b, ]
-    weight_a <- weight[indices_a]
-    weight_b <- weight[indices_b]
-    Vector_1_b <- Vector_1[indices_b]
-    Vector_2_b <- Vector_2[indices_b]
-
-    # Compute for group a
-    basis_weight_a <- basis_a * weight_a
-    t_basis_weight_a <- t(basis_weight_a)
-    Mat_a <- eigenMapMatMult(t_basis_weight_a, basis_a)
-    L_a <- chol(Mat_a)
-    Omega_mat_a <- chol2inv(L_a) * (n / 2)
-
-    # Compute Ker using Omega_mat_a and basis_b
-    Ker_ab <- eigenMapMatMult(eigenMapMatMult(basis_b, Omega_mat_a), t(basis_weight_a))
-
-    # Compute results using Ker_ab and Vector_1_b, Vector_2_b
-    results_ab <- calculate_u_statistics_six(Vector_1 = Vector_1_b, Vector_2 = Vector_2_b,
-                                             A1 = Ker_ab, A2 = Ker_ab, A3 = Ker_ab, A4 = Ker_ab,A5 = Ker_ab)
-
-    U_list_ab <- list()
-    for (i in 2:order) {
-      U_list_ab[[paste0("U_", i)]] <- (-1)^i * results_ab[[i - 1]]
-    }
-
-    BD_list_ab <- Buildingblock_sum_HOIF(U_list_ab, order = order)
-    return_list_ab <- c(BD_list_ab, U_list_ab)
-
-    # Combine results for SH-OIF (Splita -> b)
-    return_list_ab <- combine_results(eHOIF = return_list_ab)
-
-    # Repeat the process, swapping a and b
-    basis_weight_b <- basis_b * weight_b
-    t_basis_weight_b <- t(basis_weight_b)
-    Mat_b <- eigenMapMatMult(t_basis_weight_b, basis_b)
-    L_b <- chol(Mat_b)
-    Omega_mat_b <- chol2inv(L_b) * (n / 2)
-
-    Ker_ba <- eigenMapMatMult(eigenMapMatMult(basis_a, Omega_mat_b), t(basis_weight_b))
-
-    results_ba <- calculate_u_statistics_six(Vector_1 = Vector_1[indices_a], Vector_2 = Vector_2[indices_a],
-                                             A1 = Ker_ba, A2 = Ker_ba, A3 = Ker_ba, A4 = Ker_ba, A5 = Ker_ba)
-
-    U_list_ba <- list()
-    for (i in 2:order) {
-      U_list_ba[[paste0("U_", i)]] <- (-1)^i * results_ba[[i - 1]]
-    }
-
-    BD_list_ba <- Buildingblock_sum_HOIF(U_list_ba, order = order)
-    return_list_ba <- c(BD_list_ba, U_list_ba)
-
-    return_list_ba <- combine_results(eHOIF = return_list_ba)
-
-    # Average the two return lists
-    return_list <- add_lists(return_list_ab, return_list_ba)
-    return_list <- lapply(return_list, function(x) x / 2)
-
-  }
-
-  return(return_list)
+  cat("\nFinal ATE estimate (highest order):", round(tail(x$ATE, 1), 4), "\n")
 }
 
 
-################################################################################
-# Main function using "part" U-statistics definition i.e. (i_1 < i_2 < ... < i_m)
-# Computes and return any order>2 HOIF estimator,(order-1)'s estimators from 2-th HOIF to order-th HOIF estimator .
-# Vector_1: a n-dimensional vector containing the treatment residuals (like (Aa -1) )
-# Vector_2: a n-dimensional vector containing the outcome residuals (like (y - b) ,but not (A(y-b))! Here no A-weighted)
-# weight : a n-dimensional vector containing the treatment for Weight-ed Gram matrix ( like A or (1-A) )
-# basis: a n*p matrix containing the basis transformations of the confounder.
-# order: number of estimators.
-# Split: a logistic variable, default value is 0.
-#        Split== 1 means using sample Splitto compute the Omega_hat (eHOIF),
-#        Split== 0 means using whole sample to compute the Omega_hat (sHOIF).
-################################################################################
-compute_HOIF_general_part_U <- function(Vector_1, Vector_2, weight, basis, order, Split= 0) {
-  n <- length(Vector_1)
-
-  if (Split== 0) {
-    # Original implementation for Split== 0
-    basis_weight <- basis * weight
-    t_basis_weight <- t(basis_weight)
-    Mat <- eigenMapMatMult(t_basis_weight, basis)
-    L <- chol(Mat)
-    Omega_mat <- chol2inv(L) * n
-
-    Ker <- eigenMapMatMult(eigenMapMatMult(basis, Omega_mat), t_basis_weight)
-    Ker_up <- Ker * upper.tri(Ker)
-    t_vector_1 <- t(Vector_1)
-    C <- diag(n)
-
-    U_list <- list()
-
-    for (i in 2:order) {
-      C <- eigenMapMatMult(C, Ker_up)
-      U_list[[paste0("U_", i)]] <- (-1)^i * as.numeric(eigenMapMatMult(eigenMapMatMult(t_vector_1, C), Vector_2)) / choose(n, i)
-    }
-
-    BD_list <- Buildingblock_sum_HOIF(U_list, order)
-    return_list <- c(BD_list, U_list)
-    return_list <- combine_results(sHOIF = return_list)
-
-  } else if (Split== 1) {
-    # Sample-Splitimplementation for Split== 1
-    # Splitindices into two halves: a and b
-    idx_a <- sample(1:n, size = round(n / 2), replace = FALSE)
-    idx_b <- setdiff(1:n, idx_a)
-
-    # Splitbasis, weight, Vector_1, and Vector_2
-    basis_a <- basis[idx_a, , drop = FALSE]
-    basis_b <- basis[idx_b, , drop = FALSE]
-    weight_a <- weight[idx_a]
-    weight_b <- weight[idx_b]
-    Vector_1_a <- Vector_1[idx_a]
-    Vector_2_a <- Vector_2[idx_a]
-    Vector_1_b <- Vector_1[idx_b]
-    Vector_2_b <- Vector_2[idx_b]
-
-    # Compute Mat and Omega_mat using subset a
-    basis_weight_a <- basis_a * weight_a
-    t_basis_weight_a <- t(basis_weight_a)
-    Mat_a <- eigenMapMatMult(t_basis_weight_a, basis_a)
-    L_a <- chol(Mat_a)
-    Omega_mat_a <- chol2inv(L_a) * (n / 2)
-
-    # Compute Ker using basis_b and Omega_mat_a
-    t_basis_weight_b <- t(basis_b * weight_b)
-    Ker_ab <- eigenMapMatMult(eigenMapMatMult(basis_b, Omega_mat_a), t_basis_weight_b)
-    Ker_up_ab <- Ker_ab * upper.tri(Ker_ab)
-
-    # Calculate U_list for subset b
-    t_vector_1_b <- t(Vector_1_b)
-    C_ab <- diag(length(idx_b))
-    U_list_ab <- list()
-
-    for (i in 2:order) {
-      C_ab <- eigenMapMatMult(C_ab, Ker_up_ab)
-      U_list_ab[[paste0("U_", i)]] <- (-1)^i * as.numeric(eigenMapMatMult(eigenMapMatMult(t_vector_1_b, C_ab), Vector_2_b)) / choose((n / 2), i)
-    }
-
-    # Compute Mat and Omega_mat using subset b
-    basis_weight_b <- basis_b * weight_b
-    t_basis_weight_b <- t(basis_weight_b)
-    Mat_b <- eigenMapMatMult(t_basis_weight_b, basis_b)
-    L_b <- chol(Mat_b)
-    Omega_mat_b <- chol2inv(L_b) * (n / 2)
-
-    # Compute Ker using basis_a and Omega_mat_b
-    t_basis_weight_a <- t(basis_a * weight_a)
-    Ker_ba <- eigenMapMatMult(eigenMapMatMult(basis_a, Omega_mat_b), t_basis_weight_a)
-    Ker_up_ba <- Ker_ba * upper.tri(Ker_ba)
-
-    # Calculate U_list for subset a
-    t_vector_1_a <- t(Vector_1_a)
-    C_ba <- diag(length(idx_a))
-    U_list_ba <- list()
-
-    for (i in 2:order) {
-      C_ba <- eigenMapMatMult(C_ba, Ker_up_ba)
-      U_list_ba[[paste0("U_", i)]] <- (-1)^i * as.numeric(eigenMapMatMult(eigenMapMatMult(t_vector_1_a, C_ba), Vector_2_a)) / choose((n / 2), i)
-    }
-
-    # Combine results from both splits and average
-    BD_list_ab <- Buildingblock_sum_HOIF(U_list_ab, order)
-    BD_list_ba <- Buildingblock_sum_HOIF(U_list_ba, order)
-
-    return_list_ab <- c(BD_list_ab, U_list_ab)
-    return_list_ab <- combine_results(eHOIF = return_list_ab)
-
-    return_list_ba <- c(BD_list_ba, U_list_ba)
-    return_list_ba <- combine_results(eHOIF = return_list_ba)
-
-    # Average the two return lists
-    return_list <- add_lists(return_list_ab, return_list_ba)
-    return_list <- lapply(return_list, function(x) x / 2)
-  }
-
-  return(return_list)
+#' Plot convergence of ATE estimates
+#'
+#' @param x Object of class hoif_ate
+#' @param ... Additional arguments passed to plot
+#'
+#' @export
+plot.hoif_ate <- function(x, ...) {
+  plot(x$orders, x$ATE, type = "b", pch = 19,
+       xlab = "Order", ylab = "ATE Estimate",
+       main = "Convergence of HOIF-ATE Estimator",
+       ...)
+  abline(h = tail(x$ATE, 1), lty = 2, col = "red")
+  grid()
 }
-
-
-################################################################################
-# Helper funciton for compute_HOIF_general_part_U()
-# Computes and returns (order)-th HOIF estimator and IF from buildingblock U_list
-################################################################################
-Buildingblock_sum_HOIF <- function(U_list, order, fplugin = 0) {
-  BD_list <- list()
-
-  for (j in 2:(order)) {
-    BD_value <- 0
-
-    for (i in 0:(j - 2)) {
-
-      combination <- choose(j - 2, i)
-
-      U_index <- j - i
-
-      BD_value <- BD_value + combination * U_list[[paste0("U_", U_index)]]
-    }
-
-
-    BD_list[[paste0("IF_", j)]] <- BD_value
-  }
-
-
-  sum_list <- list()
-
-
-  for (i in 2:order) {
-    sum_list[[paste0("HOIF", i)]] <- sum(unlist(BD_list[1:(i - 1)])) + fplugin
-  }
-  return_list <- c(sum_list, BD_list)
-  return(return_list)
-}
-################################################################################
-# Main body function in compute_HOIF_general_all_U()
-# Computes and return 4 building_block estimators from 2-th HOIF to 6-th U-statistics.
-# \bbU_{n, m}^{\mathsf{all}} \biggl[ f(O_{i_1}, \ldots, O_{i_m}) \biggr] = \frac{1}{\binom{n}{m} \factorial{m} } \sum_{i_1 \ne i_2 \ne \ldots \ne i_m} f(O_{i_1}, \ldots, O_{i_m})
-################################################################################
-
-################################################################################
-# Helper funciton for compute_HOIF_general_part_U() and compute_HOIF_general_all_U()
-# subtract, add, combine function for list
-################################################################################
-# Helper function to create no-diagonal matrix
-no_diag <- function(mat) {
-  diag(mat) <- 0
-  return(mat)
-}
-
-# Helper function for Hadamard (point-wise) product
-hadamard <- function(mat1, mat2) {
-  return(mat1 * mat2)
-}
-
-# Helper function for Diag-Column-Sum
-diag_col_sum <- function(mat) {
-  diag(colSums(mat))
-}
-# Helper function for Diag-Column-Sum
-diag_Mat <- function(mat) {
-  diag(diag(mat))
-}
-
-subtract_lists <- function(list1, list2) {
-  if (length(list1) != length(list2)) {
-    stop("Lists must be of the same length")
-  }
-  mapply(function(x, y) {
-    x - y
-  }, list1, list2, SIMPLIFY = FALSE)
-}
-add_lists <- function(list1, list2) {
-  if (length(list1) != length(list2)) {
-    stop("Lists must be of the same length")
-  }
-  mapply(function(x, y) {
-    x + y
-  }, list1, list2, SIMPLIFY = FALSE)
-}
-combine_results <- function(...) {
-
-  input_lists <- list(...)
-  list_names <- names(input_lists)
-
-
-  if (is.null(list_names) || any(list_names == "")) {
-    stop("All input lists must be named")
-  }
-
-
-  processed_lists <- lapply(names(input_lists), function(list_name) {
-    current_list <- input_lists[[list_name]]
-
-    if (!is.list(current_list)) {
-      current_list <- list(current_list)
-    }
-
-
-    result <- lapply(names(current_list), function(name) {
-      current_list[[name]]
-    })
-    names(result) <- paste0(list_name, "_", names(current_list))
-
-    return(result)
-  })
-
-
-  result <- do.call(c, processed_lists)
-  return(result)
-}
-
-################## Example ######################
-# In this example, we estimate the bias of DML/AIPW for the potential outcomes Y(a = 1) and Y(a = 0).
-# The outcome model assumes a linear relationship: Y = A + beta * X.
-# The propensity score model follows a logistic regression: A = psi(alpha * X).
-#
-# - compute_HOIF_general_all_U(): Provides the exact formula for HOIF, but only up to the 5th order.
-# - compute_HOIF_general_part_U(): Computes an approximate formula for HOIF, extendable to any order.
-#       - in their return results, "_HOIF_" are the used estimator, "_IF_" or "_U_" are just middle terms.
-# Note: The basis function of X is the identity in this example. For practical applications,
-#       it is recommended to apply transformations (e.g., B-splines, Fourier basis, etc.) to X.
-################################################
-
-set.seed(123)
-
-
-n <- 1000
-p <- 10
-
-mu_x <- 0
-alpha <- rnorm(p, mean = 0, sd = 0.1)
-beta <- rnorm(p, mean = 0, sd = 0.1)
-
-X <- matrix(rnorm(n * p, mu_x, sd = 1), nrow = n, ncol = p)
-
-logit_prob <- X %*% alpha
-prob_A <- 1 / (1 + exp(-logit_prob))
-A <- as.numeric(rbinom(n, size = 1, prob = prob_A))
-
-
-Y <- as.numeric(A + X %*% beta + rnorm(n, mean = 0, sd = 0.2))
-
-
-propensity_model <- glm(A ~ X, family = binomial(link = "logit"))
-propensity_scores <- predict(propensity_model, type = "response")
-propensity_scores <- as.numeric(propensity_scores)
-
-
-Y_model <- lm(Y ~ A + X)
-
-
-Y_pred_1 <- predict(Y_model, newdata = data.frame(A = 1, X = X))
-Y_pred_0 <- predict(Y_model, newdata = data.frame(A = 0, X = X))
-
-
-summary(propensity_model)
-summary(Y_model)
-
-epsilon_A_1 <- A / propensity_scores - 1
-epsilon_A_0 <- (1 - A) / (1 - propensity_scores) - 1
-epsilon_Y_1 <- Y - Y_pred_1
-epsilon_Y_0 <- Y - Y_pred_0
-
-m_part <- 10
-m_all <- 6
-
-hoif_1_all_shoif <- compute_HOIF_general_all_U(
-  Vector_1 = epsilon_A_1,
-  Vector_2 = epsilon_Y_1,
-  weight = A,
-  basis = X,
-  order = m_all,
-  Split= 0
-)
-hoif_1_part_shoif <- compute_HOIF_general_part_U(
-  Vector_1 = epsilon_A_1,
-  Vector_2 = epsilon_Y_1,
-  weight = A,
-  basis = X,
-  order = m_part,
-  Split= 0
-)
-
-hoif_1_all_ehoif <- compute_HOIF_general_all_U(
-  Vector_1 = epsilon_A_1,
-  Vector_2 = epsilon_Y_1,
-  weight = A,
-  basis = X,
-  order = m_all,
-  Split= 1
-)
-hoif_1_part_ehoif <- compute_HOIF_general_part_U(
-  Vector_1 = epsilon_A_1,
-  Vector_2 = epsilon_Y_1,
-  weight = A,
-  basis = X,
-  order = m_part,
-  Split= 1
-)
-
-
-hoif_0_all_shoif <- compute_HOIF_general_all_U(
-  Vector_1 = epsilon_A_0,
-  Vector_2 = epsilon_Y_0,
-  weight = 1 - A,
-  basis = X,
-  order = m_all,
-  Split= 0
-)
-hoif_0_part_shoif <- compute_HOIF_general_part_U(
-  Vector_1 = epsilon_A_0,
-  Vector_2 = epsilon_Y_0,
-  weight = 1 - A,
-  basis = X,
-  order = m_part,
-  Split= 0
-)
-
-hoif_0_all_ehoif <- compute_HOIF_general_all_U(
-  Vector_1 = epsilon_A_0,
-  Vector_2 = epsilon_Y_0,
-  weight = 1 - A,
-  basis = X,
-  order = m_all,
-  Split= 1
-)
-
-hoif_0_part_ehoif <- compute_HOIF_general_part_U(
-  Vector_1 = epsilon_A_0,
-  Vector_2 = epsilon_Y_0,
-  weight = 1 - A,
-  basis = X,
-  order = m_part,
-  Split= 1
-)
