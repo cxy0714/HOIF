@@ -1,0 +1,575 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={HOIF.R},
+  pdfauthor={thinkbook-cxy},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{HOIF.R}
+\author{thinkbook-cxy}
+\date{2026-01-26}
+
+\begin{document}
+\maketitle
+
+\#' HOIF Estimators for Average Treatment Effect \#' \#' This file
+implements the Higher Order Influence Function (HOIF) estimators \#' for
+Average Treatment Effect (ATE) estimation with nuisance functions. \#'
+\#' @author Xingyu Chen \#' @date 2026-01-23
+
+\section{Required packages}\label{required-packages}
+
+\section{install.packages(c(``splines'',
+``corpcor''))}\label{install.packagescsplines-corpcor}
+
+\#' Convert nested list expression to Einstein notation \#' \#' Converts
+a nested list expression like {[}{[}1,2{]},{[}2,3{]},{[}3,4{]}{]} to
+Einstein \#' notation like ``ab,bc,cd-\textgreater{}''. \#' \#' @param
+expr\_list A list of integer vectors, each of length 2 \#' \#' @return
+Character string in Einstein notation \#' @keywords internal \#' \#'
+@examples \#' \dontrun{
+#' expr_list_to_einstein(list(c(1,2), c(2,3), c(3,4)))  # Returns "ab,bc,cd->"
+#' } expr\_list\_to\_einstein \textless- function(expr\_list) \{ \#
+Collect and SORT indices all\_indices \textless-
+sort(unique(as.integer(unlist(expr\_list)))) n\_unique \textless-
+length(all\_indices)
+
+if (n\_unique \textgreater{} 26) \{ stop(``Too many unique indices
+(\textgreater26)'') \}
+
+index\_to\_letter \textless- setNames(letters{[}seq\_len(n\_unique){]},
+all\_indices)
+
+\# Convert each tensor terms \textless- vapply(expr\_list, function(idx)
+\{ idx \textless- as.integer(idx)
+
+\begin{verbatim}
+if (length(idx) == 1) {
+  index_to_letter[as.character(idx)]
+
+} else if (length(idx) == 2) {
+  paste0(index_to_letter[as.character(idx[1])],
+         index_to_letter[as.character(idx[2])])
+
+} else {
+  stop("Only rank-1 or rank-2 tensors supported")
+}
+\end{verbatim}
+
+\}, character(1))
+
+paste0(paste(terms, collapse = ``,''), ``-\textgreater{}'') \}
+
+\#' Compute a Higher-Order U-Statistic \#' \#' Computes a higher-order
+U-statistic given pre-computed kernel matrices \#' using either an
+Einstein summation expression or nested list notation. \#' This function
+calls Python's u-stats package via reticulate. \#' \#' \textbf{Note}:
+This function requires Python and the u-stats package to be installed.
+\#' Run \code{setup_hoif()} to install the required dependencies. \#'
+\#' @param tensors A list of numeric matrices/vectors of equal
+dimensions. \#' @param expression Either a character string (Einstein
+notation like ``ab,bc-\textgreater{}'') \#' or a nested list (like
+list(c(1,2), c(2,3))). Can also accept the special \#' format list(1,
+list(1,2), \ldots, j) from compute\_hoif\_estimators. \#' @param backend
+Character string, either ``numpy'' or ``torch'' (default). \#' @param
+average Logical; whether to return the averaged U-statistic (default
+TRUE). \#' \#' @return A numeric scalar. \#' \#' @examples \#' \dontrun{
+#' # First, setup the Python environment
+#' setup_hoif()
+#'
+#' # Then use the function
+#' v1 c- runif(100)
+#' H1 <- matrix(runif(100), 10, 10)
+#' H2 <- matrix(runif(100), 10, 10)
+#' ustat(list(H1, H2), "ab,bc->")
+#' # Or equivalently:
+#' ustat(list(v1, H1, H2),"a,ab,bc->")
+#' } \#' \#' @export ustat \textless- function(tensors, expression,
+backend = c(``torch'', ``numpy''), average = TRUE) \{
+
+if (!check\_python\_env()) \{ stop( ``Python environment not properly
+configured.\n'', ``Please run: setup\_hoif()\n'', ``Or check setup
+status with: check\_hoif\_setup()'', call. = FALSE ) \}
+
+backend \textless- match.arg(backend)
+
+if (backend == ``torch'' \&\&
+!reticulate::py\_module\_available(``torch'')) \{ warning( ``Torch
+backend not available; falling back to numpy.\n'', ``Install torch with:
+reticulate::py\_install(`torch')'', call. = FALSE ) backend \textless-
+``numpy'' \}
+
+ustats \textless- tryCatch(\{ reticulate::import(``u\_stats'',
+delay\_load = TRUE) \}, error = function(e) \{ stop( ``Failed to import
+u\_stats module.\n'', ``Please run: setup\_hoif()\n'', ``Error:'',
+e\$message, call. = FALSE ) \})
+
+ustats\$set\_backend(backend) np \textless-
+reticulate::import(``numpy'', convert = FALSE)
+
+\# ========================================================== \# 🔁
+Expression auto-conversion \#
+========================================================== if
+(is.list(expression)) \{
+
+\begin{verbatim}
+# 支持 build_Ej() 生成的格式: list(1, c(1,2), ..., j)
+valid_structure <- all(vapply(expression, function(x) {
+  is.numeric(x) && length(x) %in% c(1, 2)
+}, logical(1)))
+
+if (!valid_structure) {
+  stop("Expression list must contain numeric vectors of length 1 or 2.",
+       call. = FALSE)
+}
+
+expression <- expr_list_to_einstein(expression)
+\end{verbatim}
+
+\} else if (!is.character(expression)) \{ stop(``Expression must be
+either a character string or a nested list'', call. = FALSE) \}
+
+\# ========================================================== \# 🔁
+Tensor auto-conversion \#
+========================================================== tensors
+\textless- lapply(tensors, function(x) \{
+
+\begin{verbatim}
+# ✅ 已经是 Python numpy / torch 张量 → 直接放行
+if (inherits(x, "python.builtin.object")) {
+  return(x)
+}
+
+# ❌ 必须是 numeric
+if (!is.numeric(x)) {
+  stop("All tensors must be numeric (vector, matrix, or array).",
+       call. = FALSE)
+}
+
+# 🔹 R 向量（无 dim） → 1D numpy array
+if (is.null(dim(x))) {
+  return(np$array(as.numeric(x), dtype = "float32"))
+}
+
+# 🔹 任意维 R array → 保持维度转 numpy
+return(np$array(x, dtype = "float32"))
+\end{verbatim}
+
+\})
+
+\# ========================================================== \# 🚀 Call
+Python ustat \#
+========================================================== result
+\textless- tryCatch(\{ ustats\(ustat(
+      tensors = tensors,
+      expression = expression,
+      average = average
+    )
+  }, error = function(e) {
+    stop(
+      "Error computing U-statistic: ", e\)message, ``\n'', ``Expression
+used:'', expression, call. = FALSE ) \})
+
+as.numeric(result) \}
+
+\#' Transform covariates to basis functions \#' \#' @param X Matrix of
+covariates (n x p) \#' @param method Character: ``splines'' or
+``fourier'' \#' @param k Integer: dimension of basis expansion \#'
+@param degree Integer: degree for B-splines (default 3) \#' @param
+period Numeric: period for Fourier basis (default 1) \#' \#' @return
+Matrix Z (n x k) of transformed covariates with intercept \#' @export
+transform\_covariates \textless- function(X, method = ``splines'', k =
+10, degree = 3, period = 1) \{ if (is.vector(X)) X \textless- matrix(X,
+ncol = 1) n \textless- nrow(X) p \textless- ncol(X)
+
+\# Scale X to {[}0, 1{]} for each dimension X\_scaled \textless-
+apply(X, 2, function(x) \{ (x - min(x)) / (max(x) - min(x) + 1e-10) \})
+
+\# Initialize with intercept Z \textless- matrix(1, nrow = n, ncol = 1)
+
+\# Generate basis for each dimension separately if (method ==
+``splines'') \{ for (j in 1:p) \{ \# B-splines basis knots \textless-
+seq(0, 1, length.out = k - degree + 1) basis\_j \textless-
+splines::bs(X\_scaled{[}, j{]}, knots = knots{[}-c(1, length(knots)){]},
+degree = degree, intercept = FALSE) Z \textless- cbind(Z, basis\_j) \}
+\} else if (method == ``fourier'') \{ for (j in 1:p) \{ \# Fourier
+basis: cos and sin terms freq \textless- 1:floor(k / 2) for (f in freq)
+\{ Z \textless- cbind(Z, cos(2 * pi * f * X\_scaled{[}, j{]} / period))
+Z \textless- cbind(Z, sin(2 * pi * f * X\_scaled{[}, j{]} / period)) \}
+\} \} else \{ stop(``Method must be `splines' or `fourier'\,'') \}
+
+return(Z) \}
+
+\#' Compute residuals for both treatment groups \#' \#' @param A
+Treatment vector (0 or 1) \#' @param Y Outcome vector \#' @param mu1
+Predicted outcomes under treatment (mu(1, X)) \#' @param mu0 Predicted
+outcomes under control (mu(0, X)) \#' @param pi Propensity scores \#'
+\#' @return List with R1, r1, R0, r0 \#' @export compute\_residuals
+\textless- function(A, Y, mu1, mu0, pi) \{ \# For a = 1 R1 \textless- A
+* (Y - mu1) r1 \textless- 1 - A / pi
+
+\# For a = 0 R0 \textless- (1 - A) * (Y - mu0) r0 \textless- 1 - (1 - A)
+/ (1 - pi)
+
+return(list(R1 = R1, r1 = r1, R0 = R0, r0 = r0)) \}
+
+\#' Compute inverse of weighted Gram matrix \#' \#' @param Z Basis
+matrix (n x k) \#' @param A Treatment vector \#' @param method
+Character: ``direct'', ``nlshrink'', or ``corpcor'' \#' \#' @return List
+with Omega1 and Omega0 (inverse Gram matrices) \#' @export
+compute\_gram\_inverse \textless- function(Z, A, method = ``direct'') \{
+n \textless- nrow(Z) k \textless- ncol(Z)
+
+\# Compute weights s1 \textless- A \# s\_i\^{}1 = A\_i s0 \textless- 1 -
+A \# s\_i\^{}0 = 1 - A\_i
+
+\# Weighted Gram matrices using eigenMapMatMult if available if
+(requireNamespace(``sumt'', quietly = TRUE)) \{ \# Use faster matrix
+multiplication Z\_weighted1 \textless- Z * sqrt(s1) Z\_weighted0
+\textless- Z * sqrt(s0) G1 \textless-
+sumt::eigenMapMatMult(t(Z\_weighted1), Z\_weighted1) / n G0 \textless-
+sumt::eigenMapMatMult(t(Z\_weighted0), Z\_weighted0) / n \} else \{ \#
+Fallback to standard crossprod G1 \textless- crossprod(Z * sqrt(s1)) / n
+G0 \textless- crossprod(Z * sqrt(s0)) / n \}
+
+\# Compute inverses if (method == ``direct'') \{ Omega1 \textless-
+tryCatch(\{ chol2inv(chol(G1)) \}, error = function(e) \{ warning(``G1
+not positive definite, using Moore-Penrose inverse'') MASS::ginv(G1) \})
+
+\begin{verbatim}
+Omega0 <- tryCatch({
+  chol2inv(chol(G0))
+}, error = function(e) {
+  warning("G0 not positive definite, using Moore-Penrose inverse")
+  MASS::ginv(G0)
+})
+\end{verbatim}
+
+\} else if (method == ``nlshrink'') \{ if
+(!requireNamespace(``corpcor'', quietly = TRUE)) \{ stop(``Package
+`corpcor' needed for nlshrink method'') \} Omega1 \textless-
+corpcor::invcov.shrink(G1, verbose = FALSE) Omega0 \textless-
+corpcor::invcov.shrink(G0, verbose = FALSE) \} else if (method ==
+``corpcor'') \{ if (!requireNamespace(``corpcor'', quietly = TRUE)) \{
+stop(``Package `corpcor' needed for corpcor method'') \} Omega1
+\textless- corpcor::pseudoinverse(G1) Omega0 \textless-
+corpcor::pseudoinverse(G0) \} else \{ stop(``Method must be `direct',
+`nlshrink', or `corpcor'\,'') \}
+
+return(list(Omega1 = Omega1, Omega0 = Omega0)) \}
+
+\#' Compute basis projection matrices \#' \#' @param Z Basis matrix (n x
+k) \#' @param Omega1 Inverse Gram matrix for treatment group \#' @param
+Omega0 Inverse Gram matrix for control group \#' \#' @return List with
+B1 and B0 (projection matrices) \#' @export compute\_basis\_matrix
+\textless- function(Z, Omega1, Omega0) \{ B1 \textless- Z \%\emph{\%
+Omega1 \%}\% t(Z) B0 \textless- Z \%\emph{\% Omega0 \%}\% t(Z)
+
+return(list(B1 = B1, B0 = B0)) \}
+
+\#' Convert nested list expression to Einstein notation \#' \#' Converts
+a nested list expression like {[}{[}1,2{]},{[}2,3{]},{[}3,4{]}{]} to
+Einstein \#' notation like ``ab,bc,cd-\textgreater{}''. \#' \#' @param
+expr\_list A list of integer vectors, each of length 2 \#' \#' @return
+Character string in Einstein notation \#' @keywords internal \#' \#'
+@examples \#' \dontrun{
+#' expr_list_to_einstein([[1,2],[2,3],[3,4]])  # Returns "ab,bc,cd->"
+#' } expr\_list\_to\_einstein \textless- function(expr\_list) \{ \# Step
+1: Collect all unique indices (as characters for safe naming)
+all\_indices \textless- sort(unique(unlist(expr\_list)))
+
+if (length(all\_indices) \textgreater{} 26) \{ stop(``Too many unique
+indices (\textgreater26); Einstein notation limited to a-z'') \}
+
+\# Step 2: Map each index to a letter: 1-\textgreater a,
+2-\textgreater b, \ldots, 26-\textgreater z \# Use as.character() to
+avoid numeric name issues index\_to\_letter \textless-
+setNames(letters{[}seq\_along(all\_indices){]},
+as.character(all\_indices))
+
+\# Step 3: Convert each group (e.g., c(1,2,3) -\textgreater{} ``abc'')
+terms \textless- sapply(expr\_list, function(indices) \{ \# Ensure
+indices is a vector (even if length 1) idx\_chars \textless-
+as.character(indices) letters\_vec \textless-
+index\_to\_letter{[}idx\_chars{]}
+
+\begin{verbatim}
+# Safety check: any missing?
+if (any(is.na(letters_vec))) {
+  stop("Found unmapped index in: ", paste(indices, collapse = ", "))
+}
+
+paste0(letters_vec, collapse = "")
+\end{verbatim}
+
+\})
+
+\# Step 4: Join with commas and append ``-\textgreater{}''
+paste0(paste(terms, collapse = ``,''), ``-\textgreater{}'') \}
+
+\#' @param j Integer \textgreater= 2 \#' @return Nested list
+representing {[}1,{[}1,2{]},\ldots,{[}j-1,j{]},j{]} \#' @export
+build\_Ej \textless- function(j) \{ if (j \textless{} 2) stop(``j must
+be \textgreater= 2'')
+
+E\_j \textless- vector(``list'', j + 1)
+
+\# First single index tensor: {[}1{]} E\_j{[}{[}1{]}{]} \textless- 1
+
+\# Middle B tensors: {[}1,2{]}, {[}2,3{]}, \ldots, {[}j-1,j{]} for (k in
+1:(j-1)) \{ E\_j{[}{[}k + 1{]}{]} \textless- c(k, k + 1) \}
+
+\# Last single index tensor: {[}j{]} E\_j{[}{[}j + 1{]}{]} \textless- j
+
+E\_j \}
+
+\#' Compute HOIF estimators for ATE \#' \#' @param residuals List with
+R1, r1, R0, r0 \#' @param B\_matrices List with B1 and B0 \#' @param m
+Maximum order \#' @param backend Character: ``torch'' (default) or
+``numpy'' \#' \#' @return List with ATE, HOIF, and IIFF estimates for
+each order \#' @export compute\_hoif\_estimators \textless-
+function(residuals, B\_matrices, m = 5, backend = ``torch'') \{ \#
+Initialize storage U1 \textless- numeric(m) U0 \textless- numeric(m)
+IIFF1 \textless- numeric(m) IIFF0 \textless- numeric(m) HOIF1 \textless-
+numeric(m) HOIF0 \textless- numeric(m) ATE \textless- numeric(m)
+
+\# Extract components R1 \textless- residuals\(R1
+  r1 <- residuals\)r1 R0 \textless- residuals\(R0
+  r0 <- residuals\)r0 B1 \textless- B\_matrices\(B1
+  B0 <- B_matrices\)B0
+
+\# Compute U-statistics for each order j = 2 to m for (j in 2:m) \{ \#
+Construct tensor list T\_j\^{}a \# T\_j\^{}a = list(R\^{}a, B\^{}a,
+B\^{}a, \ldots, B\^{}a (j-1 times), r\^{}a) T\_j\_1 \textless- list(R1)
+for (k in 1:(j-1)) \{ T\_j\_1{[}{[}k+1{]}{]} \textless- B1 \}
+T\_j\_1{[}{[}j+1{]}{]} \textless- r1
+
+\begin{verbatim}
+T_j_0 <- list(R0)
+for (k in 1:(j-1)) {
+  T_j_0[[k+1]] <- B0
+}
+T_j_0[[j+1]] <- r0
+
+# Construct expression E_j^a directly as nested list
+# For j tensors: [1,[1,2], [2,3], ..., [j-1,j],j]
+# This represents: R_i * B_{i,i1} * B_{i1,i2} * ... * r_{ij}
+E_j <- build_Ej(j)
+
+# Compute U-statistics using ustat function
+U1[j] <- (-1)^j * ustat(tensors = T_j_1, expression = E_j,
+                        backend = backend, average = TRUE)
+U0[j] <- (-1)^j * ustat(tensors = T_j_0, expression = E_j,
+                        backend = backend, average = TRUE)
+\end{verbatim}
+
+\}
+
+\# Compute IIFF and HOIF for each order l = 2 to m for (l in 2:m) \{ \#
+IIFF\_l = sum\_\{j=2\}\^{}l C\_j\^{}l * U\_j \# where C\_j\^{}l =
+choose(l-2, l-j) for (j in 2:l) \{ C\_jl \textless- choose(l - 2, l - j)
+IIFF1{[}l{]} \textless- IIFF1{[}l{]} + C\_jl * U1{[}j{]} IIFF0{[}l{]}
+\textless- IIFF0{[}l{]} + C\_jl * U0{[}j{]} \}
+
+\begin{verbatim}
+# HOIF_l = sum_{j=2}^l IIFF_j
+HOIF1[l] <- sum(IIFF1[2:l])
+HOIF0[l] <- sum(IIFF0[2:l])
+
+# ATE_l = HOIF_l^1 - HOIF_l^0
+ATE[l] <- HOIF1[l] - HOIF0[l]
+\end{verbatim}
+
+\}
+
+\# Return results for orders 2 to m return(list( ATE = ATE{[}2:m{]},
+HOIF1 = HOIF1{[}2:m{]}, HOIF0 = HOIF0{[}2:m{]}, IIFF1 = IIFF1{[}2:m{]},
+IIFF0 = IIFF0{[}2:m{]}, orders = 2:m )) \}
+
+\#' Main function: HOIF estimators for ATE with optional sample
+splitting \#' \#' @param X Covariate matrix (n x p) \#' @param A
+Treatment vector (n x 1) \#' @param Y Outcome vector (n x 1) \#' @param
+mu1 Predicted outcomes under treatment \#' @param mu0 Predicted outcomes
+under control \#' @param pi Propensity scores \#' @param
+transform\_method Character: ``splines'' or ``fourier'' \#' @param k
+Dimension of basis expansion \#' @param inverse\_method Character:
+``direct'', ``nlshrink'', or ``corpcor'' \#' @param m Maximum order for
+HOIF \#' @param sample\_split Logical: whether to use sample splitting
+\#' @param K Number of folds for sample splitting (if used) \#' @param
+backend Character: ``torch'' (default) or ``numpy'' \#' @param seed
+Random seed for reproducibility (for sample splitting) \#' @param
+\ldots{} Additional arguments passed to transform\_covariates \#' \#'
+@return List with ATE, HOIF, and IIFF estimates \#' @export hoif\_ate
+\textless- function(X, A, Y, mu1, mu0, pi, transform\_method =
+``splines'', k = 10, inverse\_method = ``direct'', m = 5, sample\_split
+= FALSE, K = 5, backend = ``torch'', seed = NULL, \ldots) \{
+
+n \textless- length(Y)
+
+\# Step 1: Transform covariates (done on full data) Z \textless-
+transform\_covariates(X, method = transform\_method, k = k, \ldots)
+
+\# Step 2: Compute residuals (done on full data) residuals \textless-
+compute\_residuals(A, Y, mu1, mu0, pi)
+
+if (!sample\_split) \{ \# No sample splitting: standard procedure
+
+\begin{verbatim}
+# Step 3: Compute inverse Gram matrices
+Omega <- compute_gram_inverse(Z, A, method = inverse_method)
+
+# Step 4: Compute basis matrices
+B_matrices <- compute_basis_matrix(Z, Omega$Omega1, Omega$Omega0)
+
+# Step 5: Compute HOIF estimators
+results <- compute_hoif_estimators(residuals, B_matrices, m, backend)
+\end{verbatim}
+
+\} else \{ \# Sample splitting (cross-fitting)
+
+\begin{verbatim}
+# Set seed for fold creation if provided
+if (!is.null(seed)) {
+  set.seed(seed)
+}
+
+# Create fold indices
+fold_indices <- sample(rep(1:K, length.out = n))
+
+# Storage for fold-specific estimates
+ATE_folds <- matrix(0, nrow = K, ncol = m - 1)
+HOIF1_folds <- matrix(0, nrow = K, ncol = m - 1)
+HOIF0_folds <- matrix(0, nrow = K, ncol = m - 1)
+IIFF1_folds <- matrix(0, nrow = K, ncol = m - 1)
+IIFF0_folds <- matrix(0, nrow = K, ncol = m - 1)
+
+for (j in 1:K) {
+  # Define fold indices
+  I_j <- which(fold_indices == j)
+  I_not_j <- which(fold_indices != j)
+
+  # Step 3: Compute Omega on training set (not I_j)
+  Z_train <- Z[I_not_j, , drop = FALSE]
+  A_train <- A[I_not_j]
+  Omega_j <- compute_gram_inverse(Z_train, A_train, method = inverse_method)
+
+  # Step 4: Compute basis matrices on test set (I_j)
+  Z_test <- Z[I_j, , drop = FALSE]
+  B_matrices_j <- compute_basis_matrix(Z_test, Omega_j$Omega1, Omega_j$Omega0)
+
+  # Step 5: Compute HOIF on test set
+  residuals_j <- list(
+    R1 = residuals$R1[I_j],
+    r1 = residuals$r1[I_j],
+    R0 = residuals$R0[I_j],
+    r0 = residuals$r0[I_j]
+  )
+
+  results_j <- compute_hoif_estimators(residuals_j, B_matrices_j, m, backend)
+
+  # Store results
+  ATE_folds[j, ] <- results_j$ATE
+  HOIF1_folds[j, ] <- results_j$HOIF1
+  HOIF0_folds[j, ] <- results_j$HOIF0
+  IIFF1_folds[j, ] <- results_j$IIFF1
+  IIFF0_folds[j, ] <- results_j$IIFF0
+}
+
+# Average across folds
+results <- list(
+  ATE = colMeans(ATE_folds),
+  HOIF1 = colMeans(HOIF1_folds),
+  HOIF0 = colMeans(HOIF0_folds),
+  IIFF1 = colMeans(IIFF1_folds),
+  IIFF0 = colMeans(IIFF0_folds),
+  orders = 2:m
+)
+\end{verbatim}
+
+\}
+
+\# Add convergence plot data results\(convergence_data <- data.frame(
+    order = results\)orders, ATE = results\$ATE )
+
+class(results) \textless- ``hoif\_ate'' return(results) \}
+
+\#' Print method for hoif\_ate objects \#' \#' @param x Object of class
+hoif\_ate \#' @param \ldots{} Additional arguments (unused) \#' \#'
+@export print.hoif\_ate \textless- function(x, \ldots) \{ cat(``HOIF
+Estimators for Average Treatment Effect\n'')
+cat(``=============================================\n\n'')
+
+cat(``Estimates by order:\n'') print(data.frame( Order = x\(orders,
+    ATE = round(x\)ATE, 4), HOIF1 = round(x\(HOIF1, 4),
+    HOIF0 = round(x\)HOIF0, 4) ))
+
+cat(``\nFinal ATE estimate (highest order):'', round(tail(x\$ATE, 1),
+4), ``\n'') \}
+
+\#' Plot convergence of ATE estimates \#' \#' @param x Object of class
+hoif\_ate \#' @param \ldots{} Additional arguments passed to plot \#'
+\#' @export plot.hoif\_ate \textless- function(x, \ldots) \{
+plot(x\(orders, x\)ATE, type = ``b'', pch = 19, xlab = ``Order'', ylab =
+``ATE Estimate'', main = ``Convergence of HOIF-ATE Estimator'', \ldots)
+abline(h = tail(x\$ATE, 1), lty = 2, col = ``red'') grid() \}
+
+\end{document}

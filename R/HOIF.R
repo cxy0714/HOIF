@@ -24,27 +24,35 @@
 #' expr_list_to_einstein(list(c(1,2), c(2,3), c(3,4)))  # Returns "ab,bc,cd->"
 #' }
 expr_list_to_einstein <- function(expr_list) {
-  # Find all unique indices
-  all_indices <- unique(unlist(expr_list))
+  # Collect and SORT indices
+  all_indices <- sort(unique(as.integer(unlist(expr_list))))
   n_unique <- length(all_indices)
 
-  # Create mapping from index to letter
-  # Use letters a-z, then aa, ab, etc. if needed
-  if (n_unique <= 26) {
-    index_to_letter <- setNames(letters[1:n_unique], all_indices)
-  } else {
-    stop("Too many unique indices (>26) for Einstein notation")
+  if (n_unique > 26) {
+    stop("Too many unique indices (>26)")
   }
 
-  # Convert each sublist to letter pairs
-  terms <- sapply(expr_list, function(pair) {
-    paste0(index_to_letter[as.character(pair[1])],
-           index_to_letter[as.character(pair[2])])
-  })
+  index_to_letter <- setNames(letters[seq_len(n_unique)], all_indices)
 
-  # Combine with commas and add "->"
+  # Convert each tensor
+  terms <- vapply(expr_list, function(idx) {
+    idx <- as.integer(idx)
+
+    if (length(idx) == 1) {
+      index_to_letter[as.character(idx)]
+
+    } else if (length(idx) == 2) {
+      paste0(index_to_letter[as.character(idx[1])],
+             index_to_letter[as.character(idx[2])])
+
+    } else {
+      stop("Only rank-1 or rank-2 tensors supported")
+    }
+  }, character(1))
+
   paste0(paste(terms, collapse = ","), "->")
 }
+
 
 
 #' Compute a Higher-Order U-Statistic
@@ -71,11 +79,12 @@ expr_list_to_einstein <- function(expr_list) {
 #' setup_hoif()
 #'
 #' # Then use the function
+#' v1 c- runif(100)
 #' H1 <- matrix(runif(100), 10, 10)
 #' H2 <- matrix(runif(100), 10, 10)
 #' ustat(list(H1, H2), "ab,bc->")
 #' # Or equivalently:
-#' ustat(list(H1, H2), list(c(1,2), c(2,3)))
+#' ustat(list(v1, H1, H2),"a,ab,bc->")
 #' }
 #'
 #' @export
@@ -84,7 +93,6 @@ ustat <- function(tensors,
                   backend = c("torch", "numpy"),
                   average = TRUE) {
 
-  # Check if Python environment is available
   if (!check_python_env()) {
     stop(
       "Python environment not properly configured.\n",
@@ -96,17 +104,15 @@ ustat <- function(tensors,
 
   backend <- match.arg(backend)
 
-  # Check torch availability if requested
   if (backend == "torch" && !reticulate::py_module_available("torch")) {
     warning(
       "Torch backend not available; falling back to numpy.\n",
-      "For faster computation, install torch with: reticulate::py_install('torch')",
+      "Install torch with: reticulate::py_install('torch')",
       call. = FALSE
     )
     backend <- "numpy"
   }
 
-  # Import Python modules
   ustats <- tryCatch({
     reticulate::import("u_stats", delay_load = TRUE)
   }, error = function(e) {
@@ -119,38 +125,59 @@ ustat <- function(tensors,
   })
 
   ustats$set_backend(backend)
-  np <- reticulate::import("numpy")
+  np <- reticulate::import("numpy", convert = FALSE)
 
-  # Convert expression if needed
+  # ==========================================================
+  # 🔁 Expression auto-conversion
+  # ==========================================================
   if (is.list(expression)) {
-    # Check if all elements are length-2 vectors (nested list format)
-    all_pairs <- all(sapply(expression, function(x) {
-      is.numeric(x) && length(x) == 2
-    }))
 
-    if (all_pairs) {
-      # Already in correct format: list(c(1,2), c(2,3), ...)
-      expression <- expr_list_to_einstein(expression)
-    } else {
-      stop("Expression list format not recognized. Expected list of length-2 vectors.",
+    # 支持 build_Ej() 生成的格式: list(1, c(1,2), ..., j)
+    valid_structure <- all(vapply(expression, function(x) {
+      is.numeric(x) && length(x) %in% c(1, 2)
+    }, logical(1)))
+
+    if (!valid_structure) {
+      stop("Expression list must contain numeric vectors of length 1 or 2.",
            call. = FALSE)
     }
+
+    expression <- expr_list_to_einstein(expression)
+
   } else if (!is.character(expression)) {
-    stop("Expression must be either a character string or a nested list", call. = FALSE)
+    stop("Expression must be either a character string or a nested list",
+         call. = FALSE)
   }
 
-  # Convert R tensors to numpy arrays
+  # ==========================================================
+  # 🔁 Tensor auto-conversion
+  # ==========================================================
   tensors <- lapply(tensors, function(x) {
-    if (is.vector(x)) {
-      x <- matrix(x, ncol = 1)
+
+    # ✅ 已经是 Python numpy / torch 张量 → 直接放行
+    if (inherits(x, "python.builtin.object")) {
+      return(x)
     }
-    if (!is.matrix(x)) {
-      stop("All elements of 'tensors' must be matrices or vectors.", call. = FALSE)
+
+    # ❌ 必须是 numeric
+    if (!is.numeric(x)) {
+      stop("All tensors must be numeric (vector, matrix, or array).",
+           call. = FALSE)
     }
-    np$array(x, dtype = "float32")
+
+    # 🔹 R 向量（无 dim） → 1D numpy array
+    if (is.null(dim(x))) {
+      return(np$array(as.numeric(x), dtype = "float32"))
+    }
+
+    # 🔹 任意维 R array → 保持维度转 numpy
+    return(np$array(x, dtype = "float32"))
   })
 
-  # Call Python ustat function
+
+  # ==========================================================
+  # 🚀 Call Python ustat
+  # ==========================================================
   result <- tryCatch({
     ustats$ustat(
       tensors = tensors,
@@ -160,14 +187,14 @@ ustat <- function(tensors,
   }, error = function(e) {
     stop(
       "Error computing U-statistic: ", e$message, "\n",
-      "Expression: ", expression,
+      "Expression used: ", expression,
       call. = FALSE
     )
   })
 
-  # Convert result to R numeric
   as.numeric(result)
 }
+
 
 #' Transform covariates to basis functions
 #'
@@ -337,124 +364,59 @@ compute_basis_matrix <- function(Z, Omega1, Omega0) {
 #' expr_list_to_einstein([[1,2],[2,3],[3,4]])  # Returns "ab,bc,cd->"
 #' }
 expr_list_to_einstein <- function(expr_list) {
-  # Find all unique indices
-  all_indices <- unique(unlist(expr_list))
-  n_unique <- length(all_indices)
+  # Step 1: Collect all unique indices (as characters for safe naming)
+  all_indices <- sort(unique(unlist(expr_list)))
 
-  # Create mapping from index to letter
-  # Use letters a-z, then aa, ab, etc. if needed
-  if (n_unique <= 26) {
-    index_to_letter <- setNames(letters[1:n_unique], all_indices)
-  } else {
-    stop("Too many unique indices (>26) for Einstein notation")
+  if (length(all_indices) > 26) {
+    stop("Too many unique indices (>26); Einstein notation limited to a-z")
   }
 
-  # Convert each sublist to letter pairs
-  terms <- sapply(expr_list, function(pair) {
-    paste0(index_to_letter[as.character(pair[1])],
-           index_to_letter[as.character(pair[2])])
+  # Step 2: Map each index to a letter: 1->a, 2->b, ..., 26->z
+  # Use as.character() to avoid numeric name issues
+  index_to_letter <- setNames(letters[seq_along(all_indices)],
+                              as.character(all_indices))
+
+  # Step 3: Convert each group (e.g., c(1,2,3) -> "abc")
+  terms <- sapply(expr_list, function(indices) {
+    # Ensure indices is a vector (even if length 1)
+    idx_chars <- as.character(indices)
+    letters_vec <- index_to_letter[idx_chars]
+
+    # Safety check: any missing?
+    if (any(is.na(letters_vec))) {
+      stop("Found unmapped index in: ", paste(indices, collapse = ", "))
+    }
+
+    paste0(letters_vec, collapse = "")
   })
 
-  # Combine with commas and add "->"
+  # Step 4: Join with commas and append "->"
   paste0(paste(terms, collapse = ","), "->")
 }
 
 
-#' Compute a Higher-Order U-Statistic
-#'
-#' Computes a higher-order U-statistic given pre-computed kernel matrices
-#' using either an Einstein summation expression or nested list notation.
-#' This function calls Python's u-stats package via reticulate.
-#'
-#' @param tensors A list of numeric matrices/vectors of equal dimensions.
-#' @param expression Either a character string (Einstein notation like "ab,bc->")
-#'        or a nested list (like [[1,2],[2,3]]). Can also accept the special
-#'        format list(1, list(1,2), ..., j) from compute_hoif_estimators.
-#' @param backend Character string, either "numpy" or "torch" (default).
-#' @param average Logical; whether to return the averaged U-statistic (default TRUE).
-#'
-#' @return A numeric scalar.
-#'
-#' @examples
-#' \dontrun{
-#' H1 <- matrix(runif(100), 10, 10)
-#' H2 <- matrix(runif(100), 10, 10)
-#' ustat(list(H1, H2), "ab,bc->")
-#' # Or equivalently:
-#' ustat(list(H1, H2), [[1,2],[2,3]])
-#' }
-#'
+
+#' @param j Integer >= 2
+#' @return Nested list representing [1,[1,2],...,[j-1,j],j]
 #' @export
-ustat <- function(tensors,
-                  expression,
-                  backend = c("torch", "numpy"),
-                  average = TRUE) {
-  backend <- match.arg(backend)
+build_Ej <- function(j) {
+  if (j < 2) stop("j must be >= 2")
 
-  # Check Python availability
-  if (!reticulate::py_available(initialize = FALSE)) {
-    stop(
-      "Python is required for ustat(). ",
-      "Please install Python and the 'u-stats' package.",
-      call. = FALSE
-    )
+  E_j <- vector("list", j + 1)
+
+  # First single index tensor: [1]
+  E_j[[1]] <- 1
+
+  # Middle B tensors: [1,2], [2,3], ..., [j-1,j]
+  for (k in 1:(j-1)) {
+    E_j[[k + 1]] <- c(k, k + 1)
   }
 
-  # Check torch availability
-  if (backend == "torch" && !reticulate::py_module_available("torch")) {
-    warning(
-      "Torch backend not available; falling back to numpy.",
-      call. = FALSE
-    )
-    backend <- "numpy"
-  }
+  # Last single index tensor: [j]
+  E_j[[j + 1]] <- j
 
-  # Import Python modules
-  ustats <- reticulate::import("u_stats", delay_load = TRUE)
-  ustats$set_backend(backend)
-  np <- reticulate::import("numpy")
-
-  # Convert expression if needed
-  if (is.list(expression)) {
-    # Check if it's the special format: list(1, list(1,2), list(2,3), ..., j)
-    # This is the format from compute_hoif_estimators
-
-    # Extract only the list elements (skip single integers)
-    list_elements <- Filter(function(x) is.list(x) && length(x) == 2, expression)
-
-    if (length(list_elements) > 0) {
-      # Convert to Einstein notation
-      expression <- expr_list_to_einstein(list_elements)
-    } else {
-      stop("Expression list format not recognized", call. = FALSE)
-    }
-  } else if (!is.character(expression)) {
-    stop("Expression must be either a character string or a nested list", call. = FALSE)
-  }
-
-  # Convert R tensors to numpy arrays
-  tensors <- lapply(tensors, function(x) {
-    if (is.vector(x)) {
-      # Convert vector to column matrix for consistency
-      x <- matrix(x, ncol = 1)
-    }
-    if (!is.matrix(x)) {
-      stop("All elements of 'tensors' must be matrices or vectors.", call. = FALSE)
-    }
-    np$array(x, dtype = "float32")
-  })
-
-  # Call Python ustat function
-  result <- ustats$ustat(
-    tensors = tensors,
-    expression = expression,
-    average = average
-  )
-
-  # Convert result to R numeric
-  as.numeric(result)
+  E_j
 }
-
 
 #' Compute HOIF estimators for ATE
 #'
@@ -500,12 +462,9 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 5, backend = "tor
     T_j_0[[j+1]] <- r0
 
     # Construct expression E_j^a directly as nested list
-    # For j tensors: [[1,2], [2,3], ..., [j-1,j]]
+    # For j tensors: [1,[1,2], [2,3], ..., [j-1,j],j]
     # This represents: R_i * B_{i,i1} * B_{i1,i2} * ... * r_{ij}
-    E_j <- vector("list", j)
-    for (k in 1:j) {
-      E_j[[k]] <- c(k, k+1)
-    }
+    E_j <- build_Ej(j)
 
     # Compute U-statistics using ustat function
     U1[j] <- (-1)^j * ustat(tensors = T_j_1, expression = E_j,
@@ -542,6 +501,7 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 5, backend = "tor
     orders = 2:m
   ))
 }
+
 
 
 #' Main function: HOIF estimators for ATE with optional sample splitting

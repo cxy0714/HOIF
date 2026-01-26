@@ -25,21 +25,12 @@ cat("Test 2: Expression Conversion\n")
 cat("========================================\n")
 
 # Test the helper function
-expr1 <- list(c(1,2), c(2,3))
+expr1 <- HOIF:::build_Ej(3)
 result1 <- HOIF:::expr_list_to_einstein(expr1)
-cat("Input: list(c(1,2), c(2,3))\n")
+print(str(expr1))
 cat("Output:", result1, "\n")
-cat("Expected: ab,bc->\n")
-stopifnot(result1 == "ab,bc->")
-
-expr2 <- list(c(1,2), c(2,3), c(3,4))
-result2 <- HOIF:::expr_list_to_einstein(expr2)
-cat("\nInput: list(c(1,2), c(2,3), c(3,4))\n")
-cat("Output:", result2, "\n")
-cat("Expected: ab,bc,cd->\n")
-stopifnot(result2 == "ab,bc,cd->")
-
-cat("\n✓ Expression conversion works!\n")
+cat("Expected: a,ab,bc,c->\n")
+stopifnot(result1 == "a,ab,bc,c->")
 
 # ==============================================================================
 # Test 3: Direct ustat Call
@@ -50,17 +41,23 @@ cat("========================================\n")
 
 set.seed(123)
 n <- 10
+A <- rnorm(n)
 H1 <- matrix(runif(n*n), n, n)
 H2 <- matrix(runif(n*n), n, n)
+np <- reticulate::import("numpy", convert = FALSE)
+
+
+# Test with Einstein notation (string)
+result_str <- ustat(list(A,H1, H2,A), "a,ab,bc,c->", backend = "numpy")
+cat("Result (Einstein notation):", result_str, "\n")
 
 # Test with Einstein notation (string)
 result_str <- ustat(list(H1, H2), "ab,bc->", backend = "numpy")
 cat("Result (Einstein notation):", result_str, "\n")
-
-# Test with nested list notation
-result_list <- ustat(list(H1, H2), list(c(1,2), c(2,3)), backend = "numpy")
-cat("Result (nested list):", result_list, "\n")
-
+diag(H1) <- 0
+diag(H2) <- 0
+result_list <- (sum(H1 %*% H2) - sum(diag(H1 %*% H2)))/(n*(n-1)*(n-2))
+cat("Result (direct computing):", result_list, "\n")
 # They should be the same
 stopifnot(abs(result_str - result_list) < 1e-6)
 
@@ -179,7 +176,7 @@ results <- hoif_ate(
   mu0 = mu0,
   pi = pi,
   k = 5,
-  m = 3,
+  m = 5,
   sample_split = FALSE,
   backend = "numpy"
 )

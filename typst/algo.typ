@@ -1,5 +1,5 @@
 #import "@preview/clean-math-paper:0.2.4": *
-#import "@preview/algo:0.3.6": algo, i, d, comment, code
+#import "@preview/algo:0.3.6": algo, code, comment, d, i
 #set par(first-line-indent: 1em)
 #set page(margin: 1.75in)
 #set par(leading: 0.55em, first-line-indent: 1.8em, justify: true)
@@ -34,111 +34,133 @@
 
 = Input data
 
-$(X_i,A_i,Y_i)_(i=1)^(n)$ where $A_i in {0,1}, Y_i in bb(R), X_i in bb(R)^p$, we have the estimators of the nuisance functions $(hat(mu)(1,X_i), hat(mu)(0,X_i))$ and $pi(X_i)$, all function value is in $bb(R)$. That's the whole input data.
+Let the observed data be denoted by $(X_i, A_i, Y_i)_{i=1}^{n}$, where $A_i in {0, 1}$ is the binary treatment indicator, $Y_i in bb(R)$ is the observed outcome, and $X_i in bb(R)^p$ represents the vector of covariates.
 
-= Transformation of $X$
-
-First we transform the covariates $X_i$ to some basis functions $Z_i in bb(R)^k$, B-splines or Fourier basis functions are recommended. 
-
-here need a function 
-
-input $X$ and transform method(fourier or splines) and the respective tuning parameters, k is also in the tuning parameter.
-
-output: $(Z_i)_(i=1)^(n), Z_i in bb(R)^k$.
-
-= Compute the residuals
-
-We have 2 pair residuals, named by a label $a in {0,1}$.
-
-when $a = 1$:
-
-$ R_i^1 & = A_i (Y_i - hat(mu)(1,X_i)) \
-  r_i^1 &  = 1 - A_i / hat(pi)(X_i)  $
-
-When $a = 0$:
-$ R_i^0 & = (1 - A_i) (Y_i - hat(mu)(0,X_i)) \
-  r_i^0 & = 1 - (1 - A_i) / (1 - hat(pi)(X_i)) $
-
-here may need a function 
-
-input $(A_i,Y_i,hat(mu)(1,X_i),hat(mu)(0,X_i),hat(pi)(X_i))$ 
-
-then output the 2 pair residuals $((R_i^1,r_i^1),(R_i^0,r_i^0))$.
-
-= Compute the Inverse of weighted Gram matrix
-
-we need to compute the inverse of weighted Gram matrix $G_a = 1/n sum_(i=1)^(n) s_i^a Z_i Z_i^T$ for $a in {0,1}$ where $s_i^a = A_i^a ( 1 - A_i)^(1-a)$, for compute the inverse matrix of $G_a$ named $Omega_a = G_a^(-1)$, we can use different method, direct inverse(using chol2inv() in R maybe fast) and the shrinkage method(nlshrink,corpcor package in R). 
-
-here need a function
-
-input $(Z_i, A_i)$ and the method(direct, nlshrink, corpcor), 
-
-output $(Omega_1, Omega_0)$.
-
-= Compute the basis matrix
-
-compute the basis matrix for $a in {0,1}$:
-$ B^a = Z Omega_a Z^T.  $
-here $Z in bb(R)^(n times k)$, $Z_i$ is the i-th row of $Z$, 
-
-here need a function
-
-input $(Z_i)$ and $(Omega_1, Omega_0)$.
-output $(B^1, B^0)$.
-
-= Compute the HOIF estimators
-
-finally we can compute the HOIF estimators for ATE:
-
-input order $m$, residuals $((R_i^1,r_i^1),(R_i^0,r_i^0))$ and basis matrix $(B^1, B^0)$.
-
-For order $j$ form $2$ to $m$, and for $a in {0,1}$, we compute the following statistics:
-$ U_j^(a) = (-1)^j "ustat" ("tensors" = T_j^a, "expression"=  E_j^a, "backend" = "backend", "average" = 1). $
-where $"ustat" $ is a pre-defined function to output a scalar, backend is input parameter valued in numpy or torch, and 
-$ T_j^a &= "list"( R_i^a, underbrace(B^a, j-1"'s repeat"), r_i^a ) \
-  E_j^a & = "list"(1, "list"(1,2), dots, "list"(j-1,j), j) $
-
-Then for each order $l$ form $2$ to $m$ and  $a in (0,1)$ we compute the HOIF estimator:
-$ "IIFF"_l^a &=  sum_(j=2)^(l) C_j^l U_j^(a) \
- "HOIF"_l^a & =  sum_(j=2)^(l) "IIFF"_j^a \
- "ATE"_l & = "HOIF"_l^1 - "HOIF"_l^0 $
-
-where $C_j^l = binom(l-2,l-j)$. 
-
-Then output 
-$( "ATE"_l,"HOIF"_l^a,"IIFF"_l^a)$ for $l = 2, dots, m$ and $a in {0,1}$.
+We assume the availability of pre-computed nuisance function estimators: the conditional mean outcomes $(hat(mu)(1, X_i), hat(mu)(0, X_i))$ and the propensity score $hat(pi)(X_i)$. All these estimators map to the real line $bb(R)$.
 
 
-= The whole function - Sample spliting issue
 
-The whole function is combining all above steps, input the whole data $(X_i,A_i,Y_i)_(i=1)^(n)$, the nuisance estimators $(hat(mu)(1,X_i), hat(mu)(0,X_i))$ and $hat(pi)(X_i)$, the transformation method and its tuning parameters, the inverse method of weighted Gram matrix, the order $m$ and the backend.
+#let ustat_url = "https://github.com/your-repo/ustat"
+#let ustat = link(ustat_url)[#math.upright("ustat")]
 
-And we also need a switch to choose whether or not using sample spliting procedure and the number of splits $K$.
+= The Integrated Algorithm (Main Interface)
 
-If not using sample spliting, above procedure is what we want, output  $( "ATE"_l,"HOIF"_l^a,"IIFF"_l^a)$ for $l = 2, dots, m$ and $a in {0,1}$ is over.
+The whole function combines all the following steps to get the HOIF estiamtors for ATE. It serves as the primary entry point, orchestrating the data transformation, residual calculation, and the choice of cross-fitting strategy.
 
-If using sample splitting, we need to split the whole data into $K$ parts first, say the indices are $(I_1, I_2, dots,I_k)$ conbines to whole indices ${1,2,dots,n}$, 
+*Function Inputs:*
+- Full observed data $(X_i, A_i, Y_i)_(i=1)^n$.
+- Nuisance function estimators $(hat(mu)(1, X_i), hat(mu)(0, X_i), hat(pi)(X_i))$.
+- Transformation method and its tuning parameters.
+- Inverse method of weighted Gram matrix.
+- Maximum HOIF order $m$ and #ustat backend.
+- **Switch**: A boolean flag for sample splitting and the number of splits $K$.
 
-transformation of $X$ is done on the whole data first to get $(Z_i)_(i=1)^(n)$ and the residuals $((R_i^1,r_i^1),(R_i^0,r_i^0))$, but denote their $j$-th part with indices in $I_j$ as $(Z_i)_(i in I_j), ((R_i^1,r_i^1),(R_i^0,r_i^0))_(i in I_j)$.
+*Procedure:*
 
-Then
+1. **Global Pre-processing**:
+  - Transform the covariates $X_i$ on the whole data to obtain basis functions $(Z_i)_(i=1)^n$.
+  - Compute the global residuals $((R_i^1, r_i^1), (R_i^0, r_i^0))_(i=1)^n$.
 
-for j from 1 to K:
+2. **Branching Logic**:
+  - *If not using sample splitting*:
+    Proceed with the entire dataset using the steps described in the following sections. Output $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$ and $a in {0,1}$.
+  - *If using sample splitting (Cross-fitting)*:
+    a. Split the indices ${1, dots, n}$ into $K$ disjoint parts $(I_1, I_2, dots, I_K)$.
+    b. **For each fold** $j = 1, dots, K$:
+    - **Training**: Use data with indices not in $I_j$ ($i in.not I_j$) to compute the inverse Gram matrices $(Omega_(1,j), Omega_(0,j))$.
+    - **Estimation**: Use data with indices in $I_j$ ($i in I_j$) and the pre-computed $(Omega_(1,j), Omega_(0,j))$ to compute:
+      - Local projection matrices $(B_(1,j), B_(0,j))$.
+      - Local HOIF estimators $("ATE"_(l,j), "HOIF"_(l,j)^a, "IIFF"_(l,j)^a)$ for $l = 2, dots, m$.
+    c. **Aggregation**: Average the results across all $K$ folds:
+    $
+      "ATE"_l = 1/K sum_(j=1)^(K) "ATE"_(l,j), quad "HOIF"_l^a = 1/K sum_(j=1)^(K) "HOIF"_(l,j)^a, quad "IIFF"_l^a = 1/K sum_(j=1)^(K) "IIFF"_(l,j)^a
+    $
 
-- use data  with indices not in $I_j$ i.e. ($(Z_i)_(i in.not I_j), (A_i)_(i in.not I_j))$ to compute the inverse of weighted Gram matrix $(Omega_(1,j), Omega_(0,j))$
-- use data with indices in $I_j$ i.e. $(Z_i)_(i in I_j)$ and $(Omega_(1,j), Omega_(0,j))$ to compute the basis matrix $(B_(1,j), B_(0,j))$
-- use data with indices in $I_j$ i.e. $((R_i^1,r_i^1),(R_i^0,r_i^0))_(i in I_j)$ and $(B_(1,j), B_(0,j))$ to compute the HOIF estimators $ ( "ATE"_(l,j), "HOIF"_(l,j)^a,"IIFF"_(l,j)^a) $ for $l = 2, dots, m$ and $a in {0,1}$.
+*Output:* Final averaged estimators $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$.
 
-end for
+= Step-by-Step Technical Notes
 
-Finally average over $j$ from $1$ to $K$ to get the final estimators: 
-$ "ATE"_l = 1/K sum_(j=1)^(K) "ATE"_(l,j) \
- "HOIF"_l^a = 1/K sum_(j=1)^(K) "HOIF"_(l,j)^a \
- "IIFF"_l^a = 1/K sum_(j=1)^(K) "IIFF"_(l,j)^a $
-for $l = 2, dots, m$ and $a in {0,1}$.
+== Transformation of Covariates
 
-This the whole function with sample spliting procedure.
+First, we transform the covariates $X_i$ into a set of basis functions $Z_i in bb(R)^k$. Common choices include B-splines or Fourier basis functions.
 
+*Function Requirement:*
+- *Input*: Covariate matrix $X$, the transformation method (e.g., Fourier or B-splines), and relevant tuning parameters (including the basis dimension $k$).
+- *Output*: The transformed basis matrix $Z in bb(R)^(n times k)$, where each row $Z_i$ corresponds to the $i$-th observation.
+
+
+== Compute the Residuals
+
+Next, we compute two pairs of residuals, indexed by the treatment assignment $a in {0,1}$.
+
+For the treatment group ($a = 1$):
+$
+  R_i^1 & = A_i (Y_i - hat(mu)(1,X_i)) \
+  r_i^1 & = 1 - A_i / hat(pi)(X_i)
+$
+
+For the control group ($a = 0$):
+$
+  R_i^0 & = (1 - A_i) (Y_i - hat(mu)(0,X_i)) \
+  r_i^0 & = 1 - (1 - A_i) / (1 - hat(pi)(X_i))
+$
+
+*Function Requirement:*
+- *Input*: Observed data $(A, Y)$ and estimated nuisance functions $(hat(mu)(1,X), hat(mu)(0,X), hat(pi)(X))$.
+- *Output*: Two residual pairs $((R_i^1, r_i^1))_(i=1)^n$ and $((R_i^0, r_i^0))_(i=1)^n$.
+
+
+== Compute the Inverse of the Weighted Gram Matrix
+
+Compute the inverse of the weighted Gram matrix $G_a$ for each $a in {0,1}$:
+$ G_a = 1/n sum_(i=1)^(n) s_i^a Z_i Z_i^T, $
+where $s_i^a = A_i^a (1 - A_i)^(1-a)$ serves as the indicator for the $a$-th group. Let $Omega_a = G_a^(-1)$ denote the corresponding inverse matrix.
+
+Several estimation methods can be employed for $Omega_a$, such as direct inversion (e.g., using `chol2inv()` in R for efficiency) or shrinkage estimators (e.g., via the `nlshrink` or `corpcor` R packages) to improve numerical stability in high-dimensional settings.
+
+*Function Requirement:*
+- *Input*: Basis functions $Z$, treatment indicators $A$, and the inversion method (`direct`, `nlshrink`, or `corpcor`).
+- *Output*: A pair of inverse matrices $(Omega_1, Omega_0)$.
+
+== Compute the Projection Matrix
+
+Compute the projection-like basis matrix $B^a$ for each $a in {0,1}$:
+$ B^a = Z Omega_a Z^T, $
+where $Z in bb(R)^(n times k)$ is the matrix of basis functions. Note that $B^a$ is an $n times n$ matrix.
+
+*Function Requirement:*
+- *Input*: Basis matrix $Z$ and the inverse matrices $(Omega_1, Omega_0)$.
+- *Output*: Basis matrices $(B^1, B^0)$.
+
+
+== Compute the HOIF Estimators
+
+Finally, we compute the HOIF estimators for the ATE.
+
+*Function Requirement:*
+- *Input*:
+  - Maximum order $m$.
+  - Residual pairs $((R_i^a, r_i^a))_(a in {0,1})$.
+  - Projection matrices $(B^1, B^0)$.
+  - Backend for #ustat (`numpy` or `torch`).
+
+- *Procedure*:
+  For each order $j$ from $2$ to $m$, and for each treatment assignment $a in {0,1}$, calculate the $U$-statistics:
+  $ "U"_j^(a) = (-1)^j #ustat ("tensors" = T_j^a, "expression" = E_j^a, "backend" = "backend", "average" = 1) $
+
+  The tensors $T_j^a$ and index expressions $E_j^a$ are defined as:
+  $
+    T_j^a & = ( R^a, underbrace(B^a, j-1 " times"), r^a ) \
+    E_j^a & = ( 1, (1,2), dots, (j-1, j), j )
+  $
+
+  Then, for each order $l in {2, dots, m}$, compute:
+$
+  "IIFF"_l^a & = sum_(j=2)^(l) binom(l-2, l-j) "U"_j^(a) \
+  "HOIF"_l^a & = sum_(j=2)^(l) "IIFF"_j^a \
+     "ATE"_l & = "HOIF"_l^1 - "HOIF"_l^0
+$
+- *Output*: $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$.
 
 #pagebreak()
 = Implementation Notes for Developer (LLM Guidance)
@@ -147,25 +169,25 @@ This the whole function with sample spliting procedure.
   *Developer Instruction*: When implementing this algorithm in R (or Python), please pay strict attention to the following technical details to ensure the statistical validity of the HOIF estimators.
 ]
 
-==  Basis Transformation Strategy
+== Basis Transformation Strategy
 - *Input Scaling*: Always scale covariates $X$ to $[0, 1]$ before applying B-splines or Fourier transformations.
 - *Additive Construction*: For $X in bb(R)^p$, generate bases for each dimension separately and concatenate them: $bold(Z) = [bold(1), phi(X_1), dots, phi(X_p)]$. Do not include interaction terms unless specified.
 - *Intercept*: Ensure a constant term (column of 1s) is included in $bold(Z)$ to maintain the centering property of the Gram matrix.
 
-==  Numerical Stability in Matrix Inversion
-- *High-Dimensional Case*: If $k approx n$, the Gram matrix $bold(G)_a$ will be ill-conditioned. 
+== Numerical Stability in Matrix Inversion
+- *High-Dimensional Case*: If $k approx n$, the Gram matrix $bold(G)_a$ will be ill-conditioned.
 - *Efficiency*: In R, prefer `chol2inv(chol(Ga))` for speed, but wrap it in a `tryCatch` to handle non-positive-definite cases.
 
-==  Sample Splitting (Cross-Fitting) Logic
+== Sample Splitting (Cross-Fitting) Logic
 This is the most critical part of the implementation. For each fold $k in {1, dots, K}$:
 - *Training Set ($I_(-k)$)*: Used *only* to compute $bold(Omega)_{a, (-k)}$.
 - *Estimation Set ($I_k$)*: Used to compute the local projection matrix $bold(B)_{a, k}$ and the $U$-statistics.
-- *Index Alignment*: Ensure that the residuals $R_i^a$ and $r_i^a$ are indexed by $I_k$ and their order matches the rows/columns of $bold(B)_{a, k}$. 
+- *Index Alignment*: Ensure that the residuals $R_i^a$ and $r_i^a$ are indexed by $I_k$ and their order matches the rows/columns of $bold(B)_{a, k}$.
   - $bold(B)_{a, k}$ should be of size $|I_k| times |I_k|$.
   - $R_("loc")$ and $r_("loc")$ should be vectors of length $|I_k|$.
 
 
-==  Data Structure for Output
+== Data Structure for Output
 Return a nested list or a named list containing:
 - `ATE`: A vector of length $m-1$ containing estimators from order $2$ to $m$.
 - `IIFF_components`: The raw increment at each order to monitor convergence.
