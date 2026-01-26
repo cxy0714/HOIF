@@ -167,11 +167,11 @@ ustat <- function(tensors,
 
     # 🔹 R 向量（无 dim） → 1D numpy array
     if (is.null(dim(x))) {
-      return(np$array(as.numeric(x), dtype = "float32"))
+      return(np$array(as.numeric(x), dtype = "float64"))
     }
 
     # 🔹 任意维 R array → 保持维度转 numpy
-    return(np$array(x, dtype = "float32"))
+    return(np$array(x, dtype = "float64"))
   })
 
 
@@ -199,52 +199,69 @@ ustat <- function(tensors,
 #' Transform covariates to basis functions
 #'
 #' @param X Matrix of covariates (n x p)
-#' @param method Character: "splines" or "fourier"
-#' @param k Integer: dimension of basis expansion
-#' @param degree Integer: degree for B-splines (default 3)
-#' @param period Numeric: period for Fourier basis (default 1)
+#' @param method Character: "splines", "fourier", or "none"
+#' @param k Integer: dimension of basis expansion (ignored if method = "none")
+#' @param degree Integer: degree for B-splines (default 3; ignored if method != "splines")
+#' @param period Numeric: period for Fourier basis (default 1; ignored if method != "fourier")
 #'
-#' @return Matrix Z (n x k) of transformed covariates with intercept
+#' @return Matrix Z (n x (k * p + 1) or n x (p + 1)) of transformed covariates with intercept
 #' @export
-transform_covariates <- function(X, method = "splines", k = 10,
-                                 degree = 3, period = 1) {
+transform_covariates <- function(X, method = "splines", k = 10, degree = 3, period = 1) {
   if (is.vector(X)) X <- matrix(X, ncol = 1)
   n <- nrow(X)
   p <- ncol(X)
 
-  # Scale X to [0, 1] for each dimension
+
+
+  if (method == "none") {
+    # Return [intercept | X] as-is
+    return(X)
+  }
+
+  # Initialize with intercept
+  Z_intercept <- matrix(1, nrow = n, ncol = 1)
+  # Scale X to [0, 1] for each dimension (only needed for splines/fourier)
   X_scaled <- apply(X, 2, function(x) {
     (x - min(x)) / (max(x) - min(x) + 1e-10)
   })
 
-  # Initialize with intercept
-  Z <- matrix(1, nrow = n, ncol = 1)
-
-  # Generate basis for each dimension separately
   if (method == "splines") {
+    Z_basis <- matrix(nrow = n, ncol = 0)
     for (j in 1:p) {
-      # B-splines basis
       knots <- seq(0, 1, length.out = k - degree + 1)
-      basis_j <- splines::bs(X_scaled[, j], knots = knots[-c(1, length(knots))],
-                             degree = degree, intercept = FALSE)
-      Z <- cbind(Z, basis_j)
+      basis_j <- splines::bs(
+        X_scaled[, j],
+        knots = knots[-c(1, length(knots))],
+        degree = degree,
+        intercept = FALSE
+      )
+      Z_basis <- cbind(Z_basis, basis_j)
     }
+    return(cbind(Z_intercept, Z_basis))
+
   } else if (method == "fourier") {
+    Z_basis <- matrix(nrow = n, ncol = 0)
     for (j in 1:p) {
-      # Fourier basis: cos and sin terms
       freq <- 1:floor(k / 2)
       for (f in freq) {
-        Z <- cbind(Z, cos(2 * pi * f * X_scaled[, j] / period))
-        Z <- cbind(Z, sin(2 * pi * f * X_scaled[, j] / period))
+        Z_basis <- cbind(
+          Z_basis,
+          cos(2 * pi * f * X_scaled[, j] / period),
+          sin(2 * pi * f * X_scaled[, j] / period)
+        )
+      }
+      # Handle odd k: add one extra cosine if k is odd
+      if (k %% 2 == 1) {
+        f_extra <- (k + 1) / 2
+        Z_basis <- cbind(Z_basis, cos(2 * pi * f_extra * X_scaled[, j] / period))
       }
     }
+    return(cbind(Z_intercept, Z_basis))
+
   } else {
-    stop("Method must be 'splines' or 'fourier'")
+    stop("Method must be 'splines', 'fourier', or 'none'")
   }
-
-  return(Z)
 }
-
 
 #' Compute residuals for both treatment groups
 #'
@@ -427,7 +444,7 @@ build_Ej <- function(j) {
 #'
 #' @return List with ATE, HOIF, and IIFF estimates for each order
 #' @export
-compute_hoif_estimators <- function(residuals, B_matrices, m = 5, backend = "torch") {
+compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "torch") {
   # Initialize storage
   U1 <- numeric(m)
   U0 <- numeric(m)
@@ -512,7 +529,7 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 5, backend = "tor
 #' @param mu1 Predicted outcomes under treatment
 #' @param mu0 Predicted outcomes under control
 #' @param pi Propensity scores
-#' @param transform_method Character: "splines" or "fourier"
+#' @param transform_method Character: "splines", "fourier", or "none"
 #' @param k Dimension of basis expansion
 #' @param inverse_method Character: "direct", "nlshrink", or "corpcor"
 #' @param m Maximum order for HOIF
@@ -528,7 +545,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
                      transform_method = "splines",
                      k = 10,
                      inverse_method = "direct",
-                     m = 5,
+                     m = 7,
                      sample_split = FALSE,
                      K = 5,
                      backend = "torch",

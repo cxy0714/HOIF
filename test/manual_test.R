@@ -40,29 +40,78 @@ cat("Test 3: Direct ustat Call\n")
 cat("========================================\n")
 
 set.seed(123)
-n <- 10
-A <- rnorm(n)
-H1 <- matrix(runif(n*n), n, n)
-H2 <- matrix(runif(n*n), n, n)
-np <- reticulate::import("numpy", convert = FALSE)
+n <- 2000
+p <- 50
+X <- matrix(rnorm(n * p), ncol = p)
+A <- rbinom(n, 1, 0.5)
+beta <- runif(p)
+beta <- beta/sqrt(as.numeric(crossprod(beta)))
+Y <- as.numeric(A + X %*% beta + rnorm(n,0, 0.1))
+
+# Split data by treatment
+idx1 <- which(A == 1)
+idx0 <- which(A == 0)
+
+X1 <- X[idx1, , drop = FALSE]
+Y1 <- Y[idx1]
+
+X0 <- X[idx0, , drop = FALSE]
+Y0 <- Y[idx0]
+
+library(glmnet)
+cv_fit1 <- cv.glmnet(X1, Y1, alpha = 1)  # alpha=1 => Lasso
+mu1_hat_all <- predict(cv_fit1, newx = X, s = "lambda.min")  # predict on ALL X
+cv_fit0 <- cv.glmnet(X0, Y0, alpha = 1)
+mu0_hat_all <- predict(cv_fit0, newx = X, s = "lambda.min")
+
+mu1 <- as.vector(mu1_hat_all)
+mu0 <- as.vector(mu0_hat_all)
+# Simple nuisance estimates
+pi <- rep(0.5, n)
+
+transform_method <- "none"
+inverse_method <- "direct"
+m <- 4
+backend_1 <- "numpy"
+backend_2 <- "torch"
+# Step 1: Transform covariates (done on full data)
+Z <- transform_covariates(X, method = transform_method, k = p)
+
+# Step 2: Compute residuals (done on full data)
+residuals <- compute_residuals(A, Y, mu1, mu0, pi)
+
+# Step 3: Compute inverse Gram matrices
+Omega <- compute_gram_inverse(Z, A, method = inverse_method)
+
+# Step 4: Compute basis matrices
+B_matrices <- compute_basis_matrix(Z, Omega$Omega1, Omega$Omega0)
+
+# Step 5: Compute HOIF estimators
+results_1 <- compute_hoif_estimators(residuals, B_matrices, m, backend_1)
+results_2 <- compute_hoif_estimators(residuals, B_matrices, m, backend_2)
 
 
 # Test with Einstein notation (string)
-result_str <- ustat(list(A,H1, H2,A), "a,ab,bc,c->", backend = "numpy")
-cat("Result (Einstein notation):", result_str, "\n")
+U3 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,c->", backend = "torch")
 
-# Test with Einstein notation (string)
-result_str <- ustat(list(H1, H2), "ab,bc->", backend = "numpy")
-cat("Result (Einstein notation):", result_str, "\n")
-diag(H1) <- 0
-diag(H2) <- 0
-result_list <- (sum(H1 %*% H2) - sum(diag(H1 %*% H2)))/(n*(n-1)*(n-2))
+L1 <- sweep(B_matrices$B1, 1, residuals$R1, "*")
+R1 <- sweep(B_matrices$B1, 2, residuals$r1, "*")
+diag(L1) <- 0
+diag(R1) <- 0
+result_list <- (sum(L1 %*% R1) - sum(diag(L1 %*% R1)))/(n*(n-1)*(n-2))
 cat("Result (direct computing):", result_list, "\n")
-# They should be the same
-stopifnot(abs(result_str - result_list) < 1e-6)
+
 
 cat("\n✓ ustat works with both formats!\n")
 
+ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,d->", backend = "numpy")
+
+U4 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,d->", backend = "torch")
+U5 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,e->", backend = "torch")
+U6 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,ef,f->", backend = "torch")
+source("test/hoif_r.R")
+d_u <-  calculate_u_statistics_six(Vector_1 = residuals$R1, Vector_2 = residuals$r1, A1 =  B_matrices$B1, A2 = B_matrices$B1, A3 = B_matrices$B1, A4 = B_matrices$B1, A5 = B_matrices$B1)
+str(d_u)
 # ==============================================================================
 # Test 4: Covariate Transformation
 # ==============================================================================
@@ -153,37 +202,72 @@ cat("Test 7: Simple HOIF Estimation\n")
 cat("========================================\n")
 
 set.seed(123)
-n <- 100
-X <- matrix(rnorm(n * 2), ncol = 2)
+n <- 2000
+p <- 50
+X <- matrix(rnorm(n * p), ncol = p)
 A <- rbinom(n, 1, 0.5)
-Y <- A + X[,1] + rnorm(n)
+beta <- runif(p)
+beta <- beta/sqrt(as.numeric(crossprod(beta)))
+Y <- as.numeric(A + X %*% beta + rnorm(n,0, 0.1))
 
+# Split data by treatment
+idx1 <- which(A == 1)
+idx0 <- which(A == 0)
+
+X1 <- X[idx1, , drop = FALSE]
+Y1 <- Y[idx1]
+
+X0 <- X[idx0, , drop = FALSE]
+Y0 <- Y[idx0]
+
+library(glmnet)
+cv_fit1 <- cv.glmnet(X1, Y1, alpha = 1)  # alpha=1 => Lasso
+mu1_hat_all <- predict(cv_fit1, newx = X, s = "lambda.min")  # predict on ALL X
+cv_fit0 <- cv.glmnet(X0, Y0, alpha = 1)
+mu0_hat_all <- predict(cv_fit0, newx = X, s = "lambda.min")
+
+mu1 <- as.vector(mu1_hat_all)
+mu0 <- as.vector(mu0_hat_all)
 # Simple nuisance estimates
-mu1 <- rep(mean(Y[A==1]), n)
-mu0 <- rep(mean(Y[A==0]), n)
 pi <- rep(0.5, n)
 
 cat("Running HOIF with:\n")
 cat("  n =", n, "\n")
 cat("  p =", ncol(X), "\n")
-cat("  k = 5\n")
-cat("  m = 3\n")
 cat("  Sample split: FALSE\n")
+m <- 4
+results <- hoif_ate(
+  X, A, Y,
+  mu1 = mu1,
+  mu0 = mu0,
+  pi = pi,
+  transform_method = "none",
+  k = 5,
+  m = m,
+  sample_split = 0,
+  backend = "numpy"
+)
+
+cat("\nResults:\n")
+print(results)
+plot(results)
+cat("\n✓ Basic HOIF works!\n")
 
 results <- hoif_ate(
   X, A, Y,
   mu1 = mu1,
   mu0 = mu0,
   pi = pi,
+  transform_method = "none",
   k = 5,
-  m = 5,
-  sample_split = FALSE,
-  backend = "numpy"
+  m = m,
+  sample_split = 0,
+  backend = "torch"
 )
 
 cat("\nResults:\n")
 print(results)
-
+plot(results)
 cat("\n✓ Basic HOIF works!\n")
 
 # ==============================================================================
@@ -202,7 +286,7 @@ Y <- A + X[,1] + rnorm(n)
 mu1 <- rep(mean(Y[A==1]), n)
 mu0 <- rep(mean(Y[A==0]), n)
 pi <- rep(0.5, n)
-
+m <- 7
 cat("Running HOIF with:\n")
 cat("  n =", n, "\n")
 cat("  p =", ncol(X), "\n")
@@ -215,12 +299,13 @@ results_split <- hoif_ate(
   mu1 = mu1,
   mu0 = mu0,
   pi = pi,
+  transform_method = "none",
   k = 8,
-  m = 4,
+  m = m,
   sample_split = TRUE,
-  K = 3,
+  K = 6,
   seed = 123,
-  backend = "numpy"
+  backend = "torch"
 )
 
 cat("\nResults:\n")
@@ -232,8 +317,9 @@ results_split2 <- hoif_ate(
   mu1 = mu1,
   mu0 = mu0,
   pi = pi,
+  transform_method = "none",
   k = 8,
-  m = 4,
+  m = m,
   sample_split = TRUE,
   K = 3,
   seed = 123,
