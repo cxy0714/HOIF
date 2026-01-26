@@ -435,16 +435,27 @@ build_Ej <- function(j) {
   E_j
 }
 
-#' Compute HOIF estimators for ATE
+#' Compute HOIF Estimators for ATE
 #'
-#' @param residuals List with R1, r1, R0, r0
-#' @param B_matrices List with B1 and B0
-#' @param m Maximum order
-#' @param backend Character: "torch" (default) or "numpy"
+#' @param residuals A list containing the computed residuals: `R1`, `r1`, `R0`, and `r0`.
+#' @param B_matrices A list containing the projection-like basis matrices: `B1` and `B0`.
+#' @param m Integer. The maximum order of the HOIF estimator.
+#' @param backend Character. The computation backend for the `ustat` package;
+#'        either "torch" (default) or "numpy".
+#' @param pure_R_code Logical. Whether to use a native R implementation.
+#'        This serves as a fallback when the `reticulate` environment (Python)
+#'        encounters configuration issues. Note: The pure R implementation
+#'        only supports up to the 6th order ($m = 6$).
 #'
-#' @return List with ATE, HOIF, and IIFF estimates for each order
+#' @return A list of HOIF estimators (ATE, HOIF, IIFF) for orders $l = 2, \dots, m$.
 #' @export
-compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "torch") {
+compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "torch", pure_R_code = FALSE) {
+  # Check for order limit in pure R mode
+  if (pure_R_code && m > 6) {
+    stop("When 'pure_R_code' is TRUE, the maximum order supported is 6.")
+  }
+
+
   # Initialize storage
   U1 <- numeric(m)
   U0 <- numeric(m)
@@ -462,34 +473,37 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
   B1 <- B_matrices$B1
   B0 <- B_matrices$B0
 
-  # Compute U-statistics for each order j = 2 to m
-  for (j in 2:m) {
-    # Construct tensor list T_j^a
-    # T_j^a = list(R^a, B^a, B^a, ..., B^a (j-1 times), r^a)
-    T_j_1 <- list(R1)
-    for (k in 1:(j-1)) {
-      T_j_1[[k+1]] <- B1
+  if (!pure_R_code) {
+    # Compute U-statistics for each order j = 2 to m using Python backend
+    for (j in 2:m) {
+      # Construct tensor list T_j^a
+      # T_j^a = list(R^a, B^a, B^a, ..., B^a (j-1 times), r^a)
+      T_j_1 <- c(list(R1), rep(list(B1), j - 1), list(r1))
+      T_j_0 <- c(list(R0), rep(list(B0), j - 1), list(r0))
+
+      # Construct expression E_j^a directly as nested list
+      # For j tensors: [1, [1,2], [2,3], ..., [j-1,j], j]
+      # This represents: R_i * B_{i,i1} * B_{i1,i2} * ... * r_{ij}
+      E_j <- build_Ej(j)
+
+      # Compute U-statistics using ustat function
+      U1[j] <- (-1)^j * ustat(tensors = T_j_1, expression = E_j,
+                              backend = backend, average = TRUE)
+      U0[j] <- (-1)^j * ustat(tensors = T_j_0, expression = E_j,
+                              backend = backend, average = TRUE)
     }
-    T_j_1[[j+1]] <- r1
+  } else {
+    # Compute U-statistics using pure R fallback (up to 6th order)
+    U_list_1 <- calculate_u_statistics_six(Vector_1 = R1, Vector_2 = r1,
+                                           A1 = B1, A2 = B1, A3 = B1, A4 = B1, A5 = B1)
+    U_list_0 <- calculate_u_statistics_six(Vector_1 = R0, Vector_2 = r0,
+                                           A1 = B0, A2 = B0, A3 = B0, A4 = B0, A5 = B0)
 
-    T_j_0 <- list(R0)
-    for (k in 1:(j-1)) {
-      T_j_0[[k+1]] <- B0
+    for (j in 2:m) {
+      U1[j] <- (-1)^j * U_list_1[[j - 1]]
+      U0[j] <- (-1)^j * U_list_0[[j - 1]]
     }
-    T_j_0[[j+1]] <- r0
-
-    # Construct expression E_j^a directly as nested list
-    # For j tensors: [1,[1,2], [2,3], ..., [j-1,j],j]
-    # This represents: R_i * B_{i,i1} * B_{i1,i2} * ... * r_{ij}
-    E_j <- build_Ej(j)
-
-    # Compute U-statistics using ustat function
-    U1[j] <- (-1)^j * ustat(tensors = T_j_1, expression = E_j,
-                            backend = backend, average = TRUE)
-    U0[j] <- (-1)^j * ustat(tensors = T_j_0, expression = E_j,
-                            backend = backend, average = TRUE)
   }
-
   # Compute IIFF and HOIF for each order l = 2 to m
   for (l in 2:m) {
     # IIFF_l = sum_{j=2}^l C_j^l * U_j
@@ -550,6 +564,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
                      K = 5,
                      backend = "torch",
                      seed = NULL,
+                     pure_R_code = FALSE,
                      ...) {
 
   n <- length(Y)
@@ -570,7 +585,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
     B_matrices <- compute_basis_matrix(Z, Omega$Omega1, Omega$Omega0)
 
     # Step 5: Compute HOIF estimators
-    results <- compute_hoif_estimators(residuals, B_matrices, m, backend)
+    results <- compute_hoif_estimators(residuals, B_matrices, m, backend, pure_R_code)
 
   } else {
     # Sample splitting (cross-fitting)
@@ -612,7 +627,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
         r0 = residuals$r0[I_j]
       )
 
-      results_j <- compute_hoif_estimators(residuals_j, B_matrices_j, m, backend)
+      results_j <- compute_hoif_estimators(residuals_j, B_matrices_j, m, backend, pure_R_code)
 
       # Store results
       ATE_folds[j, ] <- results_j$ATE
@@ -631,7 +646,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
       IIFF0 = colMeans(IIFF0_folds),
       orders = 2:m
     )
-  }
+}
 
   # Add convergence plot data
   results$convergence_data <- data.frame(
@@ -680,3 +695,260 @@ plot.hoif_ate <- function(x, ...) {
   abline(h = tail(x$ATE, 1), lty = 2, col = "red")
   grid()
 }
+
+
+#--------------------------U-stat pure in R--------------------
+#' Compute U-statistics HOIF-type from Order 2 to 6 in pure R code.
+#'
+#' This function serves as a core computational component in higher-order
+#' influence function (HOIF) estimators in pure R code.
+#'
+#' Internally, the function constructs kernel matrices for orders 2 through 6
+#' using recursive matrix operations and removes diagonal contributions to
+#' ensure degenerate U-statistics.
+#'
+#' @param Vector_1 Numeric column vector of length \eqn{n}.
+#' @param Vector_2 Numeric column vector of length \eqn{n}.
+#' @param A1,A2,A3,A4,A5 Numeric \eqn{n \times n} kernel matrices of the same dimension.
+#'
+#' @return A named list containing numeric U-statistic estimates:
+#' \describe{
+#'   \item{U2}{Second-order U-statistic}
+#'   \item{U3}{Third-order U-statistic}
+#'   \item{U4}{Fourth-order U-statistic}
+#'   \item{U5}{Fifth-order U-statistic}
+#'   \item{U6}{Sixth-order U-statistic}
+#' }
+#'
+#'@importFrom sumt eigenMapMatMult
+#' @details
+#' All diagonal elements of intermediate kernel matrices are removed to avoid
+#' self-interactions. Matrix multiplications are performed via
+#' `eigenMapMatMult()` and element-wise products via `hadamard()`.
+#' The exact formula of the output is:
+#' \deqn{
+#' \mathbb{U}_{n,m} = \frac{1}{\binom{n}{m} m!}
+#' \sum_{i_1 \ne \cdots \ne i_m} Vector_1[i_1] \cdot A1[i_1,i_2] \cdot A1[i_2,i_3] \cdots A1[i_{m-1},i_{m}] \cdot Vector_2[i_{m}]
+#' }
+#'
+#' @export
+calculate_u_statistics_six <- function(Vector_1, Vector_2, A1, A2 , A3, A4, A5) {
+  # Ensure input matrices are square and of the same size
+  n <- nrow(A1)
+  if (!(nrow(A2) == n &&
+        nrow(A3) == n && nrow(A4) == n && nrow(A5) == n)) {
+    stop("All input matrices must be square and of the same size")
+  }
+
+  # Precompute no_diag matrices to avoid recomputation
+  no_diag_A1 <- no_diag(A1)
+  no_diag_A2 <- no_diag(A2)
+  no_diag_A3 <- no_diag(A3)
+  no_diag_A4 <- no_diag(A4)
+  no_diag_A5 <- no_diag(A5)
+
+  Ker_1234 <-  calculate_u_Ker_5(A1, A2, A3, A4)
+  Ker5 <- Ker_1234$Ker5
+  Ker4 <- Ker_1234$Ker4
+  Ker3 <- Ker_1234$Ker3
+  Ker2 <- Ker_1234$Ker2
+
+  # Calculate Sub matrices for 6th order
+  # Sub matrix for i2 = i6
+  Ker_2345 <- calculate_u_Ker_5(A2, A3, A4, A5)
+  Ker5_2345 <- Ker_2345$Ker5
+  Ker4_234 <- Ker_2345$Ker4
+
+  Ker_345 <- calculate_u_Ker_4(A3, A4, A5)
+  Ker4_345 <- Ker_345$Ker4
+
+  Sub_6_2 <- eigenMapMatMult(no_diag_A1, diag_Mat(Ker5_2345)) -
+    hadamard(hadamard(no_diag_A1, t(no_diag_A2)), Ker4_345) -
+    hadamard(hadamard(no_diag_A1, t(no_diag(Ker4_234))), no_diag_A5) -
+    hadamard(hadamard(no_diag_A1, eigenMapMatMult(t(no_diag_A3), t(no_diag_A2))),eigenMapMatMult(no_diag_A4, no_diag_A5)) +
+    hadamard(no_diag_A1, eigenMapMatMult(hadamard(no_diag_A4, t(no_diag_A3)), hadamard(no_diag_A5, t(no_diag_A2))))
+
+  # Sub matrix for i3 = i6
+  Sub_6_3 <-     eigenMapMatMult(eigenMapMatMult(no_diag_A1, no_diag_A2), diag_Mat(Ker4_345)) -
+    hadamard(hadamard(eigenMapMatMult(no_diag_A1, no_diag_A2), t(no_diag_A3)),eigenMapMatMult(no_diag_A4, no_diag_A5)) -
+    hadamard(  hadamard(eigenMapMatMult(no_diag_A1, no_diag_A2), t(eigenMapMatMult(  no_diag_A3, no_diag_A4  ))), no_diag_A5)-
+    eigenMapMatMult(no_diag_A1, hadamard(  hadamard(no_diag_A2, t(no_diag_A3)),eigenMapMatMult(no_diag_A4, no_diag_A5))) +
+    hadamard(eigenMapMatMult(hadamard(no_diag_A1,t(no_diag_A4)), hadamard(no_diag_A2, t(no_diag_A3))), no_diag_A5) -
+    eigenMapMatMult(no_diag_A1, hadamard(    hadamard(no_diag_A2, no_diag_A5), t(eigenMapMatMult(no_diag_A3, no_diag_A4))  )) +
+    hadamard(t(no_diag_A3), eigenMapMatMult(hadamard(no_diag_A1, no_diag_A4), hadamard(no_diag_A2, no_diag_A5) ))
+
+
+  # Sub matrix for i4 = i6
+  Sub_6_4 <-   eigenMapMatMult(Ker4, diag_Mat(eigenMapMatMult(no_diag_A4, no_diag_A5)))-
+    hadamard(Ker4, hadamard(t(no_diag_A4), no_diag_A5)) -
+    eigenMapMatMult(no_diag_A1, hadamard( eigenMapMatMult(no_diag_A2, no_diag_A3), hadamard(t(no_diag_A4), no_diag_A5)) ) +
+    hadamard(no_diag_A3, eigenMapMatMult(hadamard(no_diag_A1, t(no_diag_A2)), hadamard(t(no_diag_A4), no_diag_A5))) -
+    eigenMapMatMult(no_diag_A1,no_diag(eigenMapMatMult(no_diag_A2, hadamard(hadamard( no_diag_A3, t(no_diag_A4)), no_diag_A5)))) +
+    eigenMapMatMult( diag_col_sum(hadamard(t(no_diag_A1),no_diag_A2)), hadamard(hadamard(no_diag_A3, t(no_diag_A4)),no_diag_A5)) -
+    hadamard(hadamard(hadamard(hadamard(no_diag_A1, t(no_diag_A2)), no_diag_A3), t(no_diag_A4)), no_diag_A5)
+
+  # Kernel matrix for 6th order
+  Ker6 <- eigenMapMatMult(no_diag(Ker5), no_diag_A5) - Sub_6_2 - Sub_6_3 - Sub_6_4
+
+  # Calculate U-statistics
+  # For each order, we use the formula from the document
+  Ker2 <- no_diag(Ker2)
+  Ker3 <- no_diag(Ker3)
+  Ker4 <- no_diag(Ker4)
+  Ker5 <- no_diag(Ker5)
+  Ker6 <- no_diag(Ker6)
+
+  U2_all <- eigenMapMatMult(eigenMapMatMult(t(Vector_1), Ker2), Vector_2) / (n * (n-1))
+  U3_all <- eigenMapMatMult(eigenMapMatMult(t(Vector_1), Ker3), Vector_2) / (n * (n-1) * (n-2))
+  U4_all <- eigenMapMatMult(eigenMapMatMult(t(Vector_1), Ker4), Vector_2) / (n * (n-1) * (n-2) * (n-3))
+  U5_all <- eigenMapMatMult(eigenMapMatMult(t(Vector_1), Ker5), Vector_2) / (n * (n-1) * (n-2) * (n-3) * (n-4))
+  U6_all <- eigenMapMatMult(eigenMapMatMult(t(Vector_1), Ker6), Vector_2) / (n * (n-1) * (n-2) * (n-3) * (n-4) * (n-5) )
+
+  results_list <- list(
+    U2 = as.numeric(U2_all),
+    U3 = as.numeric(U3_all),
+    U4 = as.numeric(U4_all),
+    U5 = as.numeric(U5_all),
+    U6 = as.numeric(U6_all)
+  )
+  # Return a list of U-statistics
+  return( results_list)
+}
+
+#' Remove Diagonal Elements of a Matrix
+#'
+#' Sets the diagonal entries of a matrix to zero. This is used to eliminate
+#' self-interactions when constructing U-statistic kernel matrices.
+#'
+#' @param mat A numeric square matrix.
+#'
+#' @return The same matrix with its diagonal set to zero.
+#' @keywords internal
+no_diag <- function(mat) {
+  diag(mat) <- 0
+  return(mat)
+}
+
+#' Hadamard (Element-wise) Matrix Product
+#'
+#' Computes the element-wise (Hadamard) product of two matrices of the same size.
+#'
+#' @param mat1,mat2 Numeric matrices of identical dimensions.
+#'
+#' @return A matrix containing the element-wise product.
+#' @keywords internal
+hadamard <- function(mat1, mat2) {
+  return(mat1 * mat2)
+}
+
+#' Diagonal Matrix of Column Sums
+#'
+#' Creates a diagonal matrix whose diagonal elements are the column sums
+#' of the input matrix.
+#'
+#' @param mat A numeric matrix.
+#'
+#' @return A diagonal matrix.
+#' @keywords internal
+diag_col_sum <- function(mat) {
+  diag(colSums(mat))
+}
+#' Extract Diagonal as a Diagonal Matrix
+#'
+#' Returns a diagonal matrix containing only the diagonal elements of
+#' the input matrix.
+#'
+#' @param mat A numeric square matrix.
+#'
+#' @return A diagonal matrix formed from \code{diag(mat)}.
+#' @keywords internal
+diag_Mat <- function(mat) {
+  diag(diag(mat))
+}
+#' Construct Kernel Matrices up to 4th Order
+#'
+#' Builds second-, third-, and fourth-order kernel matrices used in the
+#' recursive construction of higher-order U-statistics.
+#'
+#' @param A1,A2,A3 Numeric square matrices of the same dimension.
+#' @importFrom sumt eigenMapMatMult
+#' @return A list containing kernel matrices \code{Ker2}, \code{Ker3}, and \code{Ker4}.
+#' @keywords internal
+calculate_u_Ker_4 <- function(A1, A2, A3) {
+  # Ensure input matrices are square and of the same size
+  n <- nrow(A1)
+  if (!(nrow(A2) == n &&
+        nrow(A3) == n)) {
+    stop("All input matrices must be square and of the same size")
+  }
+
+  # Precompute no_diag matrices to avoid recomputation
+  no_diag_A1 <- no_diag(A1)
+  no_diag_A2 <- no_diag(A2)
+  no_diag_A3 <- no_diag(A3)
+
+
+  # Kernel matrix for 2nd order
+  Ker2 <- A1
+
+  # Kernel matrix for 3rd order
+  Ker3 <- eigenMapMatMult(no_diag_A1, no_diag_A2)
+
+  # Kernel matrix for 4th order
+  Ker4 <- eigenMapMatMult(no_diag(Ker3), no_diag_A3) -
+    eigenMapMatMult(A1, diag_col_sum(t(no_diag_A2) * no_diag_A3)) +
+    hadamard(hadamard(A1, t(A2)), A3)
+  diag(Ker4) <- diag(eigenMapMatMult(Ker3, no_diag_A3))
+  return(list(
+    Ker2 = Ker2,
+    Ker3 = Ker3,
+    Ker4 = Ker4
+  ))
+}
+#' Construct Kernel Matrices up to 5th Order
+#'
+#' Extends the recursive kernel construction to fifth order based on four
+#' input kernel matrices. This function builds upon
+#' \code{calculate_u_Ker_4()}.
+#'
+#' @param A1,A2,A3,A4 Numeric square matrices of the same dimension.
+#' @importFrom sumt eigenMapMatMult
+#' @return A list containing kernel matrices \code{Ker2}, \code{Ker3},
+#' \code{Ker4}, and \code{Ker5}.
+#' @keywords internal
+calculate_u_Ker_5 <- function(A1, A2, A3, A4) {
+  # Ensure input matrices are square and of the same size
+  n <- nrow(A1)
+  if (!(nrow(A2) == n &&
+        nrow(A3) == n && nrow(A4) == n)) {
+    stop("All input matrices must be square and of the same size")
+  }
+
+  # Precompute no_diag matrices to avoid recomputation
+  no_diag_A1 <- no_diag(A1)
+  no_diag_A2 <- no_diag(A2)
+  no_diag_A3 <- no_diag(A3)
+  no_diag_A4 <- no_diag(A4)
+
+  Ker_123 <- calculate_u_Ker_4(A1,A2,A3)
+  Ker4 <-   Ker_123$Ker4
+  Ker3 <-   Ker_123$Ker3
+  Ker2 <-   Ker_123$Ker2
+
+  # Kernel matrix for 5th order (more complex)
+  Ker5 <- eigenMapMatMult(no_diag(Ker4), no_diag_A4) -
+    eigenMapMatMult(no_diag_A1, diag(diag(eigenMapMatMult(eigenMapMatMult(no_diag_A2, no_diag_A3), no_diag_A4)))) +
+    hadamard(hadamard(no_diag_A1, t(no_diag_A2)), eigenMapMatMult(no_diag_A3, no_diag_A4)) +
+    hadamard(hadamard(no_diag_A1, no_diag_A4), eigenMapMatMult(t(no_diag_A3), t(no_diag_A2))) -
+    eigenMapMatMult(no_diag(eigenMapMatMult(no_diag_A1, no_diag_A2)), diag(diag(eigenMapMatMult(no_diag_A3, no_diag_A4)))) +
+    eigenMapMatMult(no_diag_A1, no_diag(hadamard(hadamard(no_diag_A2, t(no_diag_A3)), no_diag_A4))) +
+    hadamard(eigenMapMatMult(no_diag_A1, no_diag_A2), hadamard(t(no_diag_A3), no_diag_A4))
+  diag(Ker5) <- diag(eigenMapMatMult(Ker4, no_diag_A4))
+  return(list(
+    Ker2 = Ker2,
+    Ker3 = Ker3,
+    Ker4 = Ker4,
+    Ker5 = Ker5
+  ))
+}
+

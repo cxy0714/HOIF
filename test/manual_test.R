@@ -109,6 +109,7 @@ ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$
 U4 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,d->", backend = "torch")
 U5 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,e->", backend = "torch")
 U6 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,ef,f->", backend = "torch")
+
 source("test/hoif_r.R")
 d_u <-  calculate_u_statistics_six(Vector_1 = residuals$R1, Vector_2 = residuals$r1, A1 =  B_matrices$B1, A2 = B_matrices$B1, A3 = B_matrices$B1, A4 = B_matrices$B1, A5 = B_matrices$B1)
 str(d_u)
@@ -202,7 +203,7 @@ cat("Test 7: Simple HOIF Estimation\n")
 cat("========================================\n")
 
 set.seed(123)
-n <- 2000
+n <- 1000
 p <- 50
 X <- matrix(rnorm(n * p), ncol = p)
 A <- rbinom(n, 1, 0.5)
@@ -235,24 +236,7 @@ cat("Running HOIF with:\n")
 cat("  n =", n, "\n")
 cat("  p =", ncol(X), "\n")
 cat("  Sample split: FALSE\n")
-m <- 4
-results <- hoif_ate(
-  X, A, Y,
-  mu1 = mu1,
-  mu0 = mu0,
-  pi = pi,
-  transform_method = "none",
-  k = 5,
-  m = m,
-  sample_split = 0,
-  backend = "numpy"
-)
-
-cat("\nResults:\n")
-print(results)
-plot(results)
-cat("\n✓ Basic HOIF works!\n")
-
+m <- 6
 results <- hoif_ate(
   X, A, Y,
   mu1 = mu1,
@@ -270,6 +254,24 @@ print(results)
 plot(results)
 cat("\n✓ Basic HOIF works!\n")
 
+results <- hoif_ate(
+  X, A, Y,
+  mu1 = mu1,
+  mu0 = mu0,
+  pi = pi,
+  transform_method = "none",
+  k = 5,
+  m = m,
+  sample_split = 0,
+  backend = "torch",
+  pure_R_code = TRUE
+)
+
+cat("\nResults:\n")
+print(results)
+plot(results)
+cat("\n✓ Basic HOIF works!\n")
+
 # ==============================================================================
 # Test 8: HOIF with Sample Split
 # ==============================================================================
@@ -278,7 +280,7 @@ cat("Test 8: HOIF with Sample Split\n")
 cat("========================================\n")
 
 set.seed(456)
-n <- 200
+n <- 2000
 X <- matrix(rnorm(n * 3), ncol = 3)
 A <- rbinom(n, 1, 0.5)
 Y <- A + X[,1] + rnorm(n)
@@ -321,9 +323,9 @@ results_split2 <- hoif_ate(
   k = 8,
   m = m,
   sample_split = TRUE,
-  K = 3,
+  K = 2,
   seed = 123,
-  backend = "numpy"
+  backend = "torch"
 )
 
 cat("\nReproducibility check:\n")
