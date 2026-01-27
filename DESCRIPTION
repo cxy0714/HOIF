@@ -17,14 +17,17 @@ Encoding: UTF-8
 LazyData: true
 Depends: 
     R (>= 4.0.0)
-Imports:
+Imports: 
     splines,
+    corpcor,
+    SMUT,
+    ustats,
     reticulate (>= 1.20)
+Remotes: 
+    github::cxy0714/U-Statistics-R
 Suggests:
     testthat (>= 3.0.0),
-    corpcor,
     MASS,
-    sumt,
     knitr,
     rmarkdown
 Config/reticulate:

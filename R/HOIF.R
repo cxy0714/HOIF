@@ -4,246 +4,7 @@
 #' for Average Treatment Effect (ATE) estimation with nuisance functions.
 #'
 #' @author Xingyu Chen
-#' @date 2026-01-23
 
-# Required packages
-# install.packages(c("splines", "corpcor"))
-
-
-#' Convert Index List to Einstein Summation Notation
-#'
-#' Converts a nested list of index pairs (or single indices) into an
-#' Einstein summation expression understood by the Python \code{u_stats} backend.
-#'
-#' For example, a structure like \code{list(c(1,2), c(2,3), c(3,4))} will be
-#' converted to the string \code{"ab,bc,cd->"}.
-#'
-#' Each unique numeric index is mapped to a lowercase letter in alphabetical
-#' order. A maximum of 26 unique indices is supported.
-#'
-#' @param expr_list A list of numeric vectors.
-#'
-#' @return A character string representing the Einstein summation expression.
-#'
-#' @keywords internal
-#'
-#' @examples
-#' \dontrun{
-#' expr_list_to_einstein(list(c(1, 2), c(2, 3), c(3, 4)))
-#' # Returns "ab,bc,cd->"
-#' }
-expr_list_to_einstein <- function(expr_list) {
-  # Collect and SORT indices
-  all_indices <- sort(unique(as.integer(unlist(expr_list))))
-  n_unique <- length(all_indices)
-
-  if (n_unique > 26) {
-    stop("Too many unique indices (>26)")
-  }
-
-  index_to_letter <- setNames(letters[seq_len(n_unique)], all_indices)
-
-  # Convert each tensor
-  terms <- vapply(expr_list, function(idx) {
-    idx <- as.integer(idx)
-
-    if (length(idx) == 1) {
-      index_to_letter[as.character(idx)]
-
-    } else if (length(idx) == 2) {
-      paste0(index_to_letter[as.character(idx[1])],
-             index_to_letter[as.character(idx[2])])
-
-    } else {
-      stop("Only rank-1 or rank-2 tensors supported")
-    }
-  }, character(1))
-
-  paste0(paste(terms, collapse = ","), "->")
-}
-
-
-
-#' Compute a Higher-Order U-Statistic via Python
-#'
-#' Computes a higher-order U-statistic from precomputed kernel tensors using
-#' the Python package \code{u_stats}. This function serves as an R interface
-#' and handles automatic data conversion via \pkg{reticulate}.
-#'
-#' The U-statistic structure can be specified using either:
-#' \itemize{
-#'   \item An Einstein summation string (e.g. \code{"ab,bc->"}), or
-#'   \item A nested list of index vectors (e.g. \code{list(c(1,2), c(2,3))})
-#' }
-#'
-#' @param tensors A list of numeric vectors, matrices, or arrays representing
-#'   kernel evaluations. All tensors must have compatible dimensions.
-#' @param expression Either a character string in Einstein notation or a list
-#'   of numeric vectors of length 1 or 2 describing index structure.
-#' @param backend Character string specifying the computation backend:
-#'   \code{"torch"} (default) or \code{"numpy"}.
-#' @param average Logical; if \code{TRUE} (default), return the averaged
-#'   U-statistic. Otherwise returns the raw sum.
-#' @param dtype Optional character string specifying numeric precision for
-#'   tensors converted from R. Must be one of \code{"float32"} or
-#'   \code{"float64"}. If \code{NULL} (default), precision is chosen
-#'   automatically:
-#'   \itemize{
-#'     \item \code{float32} when using the Torch backend with CUDA available
-#'     \item \code{float64} otherwise
-#'   }
-#'
-#' @details
-#' This function requires a working Python environment with the
-#' \code{u_stats} package installed. Use \code{setup_ustat()} to install
-#' dependencies and \code{check_ustat_setup()} to verify configuration.
-#'
-#' R numeric objects are converted to NumPy arrays using the selected
-#' precision. If Python tensors (e.g., Torch tensors) are supplied directly,
-#' they are passed through unchanged.
-#'
-#' @return A numeric scalar containing the computed U-statistic.
-#'
-#' @examples
-#' \dontrun{
-#' setup_ustat()
-#'
-#' v1 <- runif(100)
-#' H1 <- matrix(runif(100), 10, 10)
-#' H2 <- matrix(runif(100), 10, 10)
-#'
-#' ustat(list(H1, H2), "ab,bc->")
-#' ustat(list(H1, H2), "ab,bc->", dtype = "float32")
-#' ustat(list(H1, H2), "ab,bc->", dtype = NULL)  # auto precision
-#' }
-#' @export
-ustat <- function(tensors,
-                  expression,
-                  backend = c("torch", "numpy"),
-                  average = TRUE,
-                  dtype = NULL) {
-
-  if (!check_python_env()) {
-    stop(
-      "Python environment not properly configured.\n",
-      "Please run: setup_ustat()\n",
-      "Or check setup status with: check_ustat_setup()",
-      call. = FALSE
-    )
-  }
-
-  backend <- match.arg(backend)
-
-  if (backend == "torch" && !reticulate::py_module_available("torch")) {
-    warning(
-      "Torch backend not available; falling back to numpy.\n",
-      "Install torch with: reticulate::py_install('torch')",
-      call. = FALSE
-    )
-    backend <- "numpy"
-  }
-
-  ustat_mod <- tryCatch({
-    reticulate::import("u_stats", delay_load = TRUE)
-  }, error = function(e) {
-    stop(
-      "Failed to import u_stats module.\n",
-      "Please run: setup_ustat()\n",
-      "Error: ", e$message,
-      call. = FALSE
-    )
-  })
-
-  ustat_mod$set_backend(backend)
-  np <- reticulate::import("numpy", convert = FALSE)
-
-  # ==========================================================
-  # 🔢 DTYPE AUTO-SELECTION
-  # ==========================================================
-  if (!is.null(dtype)) {
-    if (!dtype %in% c("float32", "float64")) {
-      stop("dtype must be NULL, 'float32', or 'float64'", call. = FALSE)
-    }
-    np_dtype <- dtype
-
-  } else {
-    # Auto নির্বাচন
-    if (backend == "torch") {
-      torch <- reticulate::import("torch", convert = FALSE)
-      use_cuda <- FALSE
-      try({
-        use_cuda <- torch$cuda$is_available()
-      }, silent = TRUE)
-
-      np_dtype <- if (isTRUE(use_cuda)) "float32" else "float64"
-
-    } else {
-      np_dtype <- "float64"
-    }
-  }
-
-  # ==========================================================
-  # 🔁 Expression auto-conversion
-  # ==========================================================
-  if (is.list(expression)) {
-
-    valid_structure <- all(vapply(expression, function(x) {
-      is.numeric(x) && length(x) %in% c(1, 2)
-    }, logical(1)))
-
-    if (!valid_structure) {
-      stop("Expression list must contain numeric vectors of length 1 or 2.",
-           call. = FALSE)
-    }
-
-    expression <- expr_list_to_einstein(expression)
-
-  } else if (!is.character(expression)) {
-    stop("Expression must be either a character string or a nested list",
-         call. = FALSE)
-  }
-
-  # ==========================================================
-  # 🔁 Tensor auto-conversion
-  # ==========================================================
-  tensors <- lapply(tensors, function(x) {
-
-    # Already a Python object → do not touch dtype
-    if (inherits(x, "python.builtin.object")) {
-      return(x)
-    }
-
-    if (!is.numeric(x)) {
-      stop("All tensors must be numeric (vector, matrix, or array).",
-           call. = FALSE)
-    }
-
-    if (is.null(dim(x))) {
-      return(np$array(as.numeric(x), dtype = np_dtype))
-    }
-
-    return(np$array(x, dtype = np_dtype))
-  })
-
-  # ==========================================================
-  # 🚀 Call Python ustat
-  # ==========================================================
-  result <- tryCatch({
-    ustat_mod$ustat(
-      tensors = tensors,
-      expression = expression,
-      average = average
-    )
-  }, error = function(e) {
-    stop(
-      "Error computing U-statistic: ", e$message, "\n",
-      "Expression used: ", expression,
-      call. = FALSE
-    )
-  })
-
-  as.numeric(result)
-}
 
 
 
@@ -251,13 +12,13 @@ ustat <- function(tensors,
 #'
 #' @param X Matrix of covariates (n x p)
 #' @param method Character: "splines", "fourier", or "none"
-#' @param k Integer: dimension of basis expansion (ignored if method = "none")
+#' @param basis_dim Integer: dimension of basis expansion (ignored if method = "none")
 #' @param degree Integer: degree for B-splines (default 3; ignored if method != "splines")
 #' @param period Numeric: period for Fourier basis (default 1; ignored if method != "fourier")
 #'
 #' @return Matrix Z (n x (k * p + 1) or n x (p + 1)) of transformed covariates with intercept
 #' @export
-transform_covariates <- function(X, method = "splines", k = 10, degree = 3, period = 1) {
+transform_covariates <- function(X, method = "splines", basis_dim, degree = 3, period = 1) {
   if (is.vector(X)) X <- matrix(X, ncol = 1)
   n <- nrow(X)
   p <- ncol(X)
@@ -354,12 +115,12 @@ compute_gram_inverse <- function(Z, A, method = "direct") {
   s0 <- 1 - A  # s_i^0 = 1 - A_i
 
   # Weighted Gram matrices using eigenMapMatMult if available
-  if (requireNamespace("sumt", quietly = TRUE)) {
+  if (requireNamespace("SMUT", quietly = TRUE)) {
     # Use faster matrix multiplication
     Z_weighted1 <- Z * sqrt(s1)
     Z_weighted0 <- Z * sqrt(s0)
-    G1 <- sumt::eigenMapMatMult(t(Z_weighted1), Z_weighted1) / n
-    G0 <- sumt::eigenMapMatMult(t(Z_weighted0), Z_weighted0) / n
+    G1 <- SMUT::eigenMapMatMult(t(Z_weighted1), Z_weighted1) / n
+    G0 <- SMUT::eigenMapMatMult(t(Z_weighted0), Z_weighted0) / n
   } else {
     # Fallback to standard crossprod
     G1 <- crossprod(Z * sqrt(s1)) / n
@@ -464,8 +225,16 @@ expr_list_to_einstein <- function(expr_list) {
 
 
 
-#' @param j Integer >= 2
-#' @return Nested list representing [1,[1,2],...,[j-1,j],j]
+#' Build E_j tensor structure
+#'
+#' Constructs a nested list representing the tensor structure [1, [1,2], ..., [j-1,j], j]
+#' used in Higher-Order Influence Function (HOIF) calculations.
+#'
+#' @param j Integer greater than or equal to 2 specifying the dimension
+#' @return A nested list with j+1 elements representing the tensor structure:
+#'   - First element: scalar 1
+#'   - Middle elements: vectors [1,2], [2,3], ..., [j-1,j]
+#'   - Last element: scalar j
 #' @export
 build_Ej <- function(j) {
   if (j < 2) stop("j must be >= 2")
@@ -503,11 +272,6 @@ build_Ej <- function(j) {
 #' @importFrom ustats ustat
 #' @export
 compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "torch", pure_R_code = FALSE) {
-  # Check for order limit in pure R mode
-  if (pure_R_code && m > 6) {
-    stop("When 'pure_R_code' is TRUE, the maximum order supported is 6.")
-  }
-
 
   # Initialize storage
   U1 <- numeric(m)
@@ -551,7 +315,6 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
                                            A1 = B1, A2 = B1, A3 = B1, A4 = B1, A5 = B1)
     U_list_0 <- calculate_u_statistics_six(Vector_1 = R0, Vector_2 = r0,
                                            A1 = B0, A2 = B0, A3 = B0, A4 = B0, A5 = B0)
-
     for (j in 2:m) {
       U1[j] <- (-1)^j * U_list_1[[j - 1]]
       U0[j] <- (-1)^j * U_list_0[[j - 1]]
@@ -595,13 +358,27 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 #' @param Y Outcome vector (n x 1)
 #' @param mu1 Predicted outcomes under treatment
 #' @param mu0 Predicted outcomes under control
-#' @param pi Propensity scores
-#' @param transform_method Character: "splines", "fourier", or "none"
-#' @param k Dimension of basis expansion
-#' @param inverse_method Character: "direct", "nlshrink", or "corpcor"
+#' @param pi Predicted propensity scores
+#' @param transform_method Character: method to transform covariates before
+#'   constructing basis functions.
+#'   - "splines": use basis splines expansion
+#'   - "fourier": use Fourier basis expansion
+#'   - "none": no transformation (use raw covariates)
+#'
+#' @param basis_dim Integer: number of basis functions to generate when using
+#'   "splines" or "fourier" transformations. Higher values provide more flexible
+#'   approximations but may increase variance.
+#'
+#' @param inverse_method Character: regularization method for Gram matrix inversion.
+#'   - "direct": direct Moore-Penrose pseudoinverse (no regularization)
+#'   - "nlshrink": nonlinear shrinkage estimator (Ledoit-Wolf type)
+#'   - "corpcor": shrinkage via the corpcor package (for high-dimensional settings)
 #' @param m Maximum order for HOIF
-#' @param sample_split Logical: whether to use sample splitting
-#' @param K Number of folds for sample splitting (if used)
+#' @param sample_split Logical: whether to use sample splitting.
+#'   If `TRUE`, the data is split: one part for estimating the inverse
+#'   Gram matrix, and the other for estimation. If `FALSE`, it corresponds
+#'   to the sHOIF case (without sample splitting).
+#' @param n_folds Number of folds for sample splitting (if used)
 #' @param backend Character: "torch" (default) or "numpy"
 #' @param seed Random seed for reproducibility (for sample splitting)
 #' @param ... Additional arguments passed to transform_covariates
@@ -610,11 +387,11 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 #' @export
 hoif_ate <- function(X, A, Y, mu1, mu0, pi,
                      transform_method = "splines",
-                     k = 10,
+                     basis_dim,
                      inverse_method = "direct",
                      m = 7,
                      sample_split = FALSE,
-                     K = 5,
+                     n_folds = 2,
                      backend = "torch",
                      seed = NULL,
                      pure_R_code = FALSE,
@@ -622,8 +399,24 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
 
   n <- length(Y)
 
+  # Check for order limit in pure R mode
+  if (pure_R_code) {
+    if (missing(m)) {
+      m <- 6
+      warning("Using default order m = 6 for pure R mode. The maximum order supported in pure R is 6.")
+    } else if (m > 6) {
+      stop("When 'pure_R_code' is TRUE, the maximum order supported is 6. If you want order > 6, please set 'pure_R_code' be FALSE then use powerful python. ")
+    } else if (m < 6) {
+      warning("You requested order ", m, " with 'pure_R_code' = TRUE. ",
+              "The pure R implementation computes all orders up to 6 at once. ",
+              "Therefore, the calculation time is the same as for order 6, ",
+              "and results up to 6th order will be returned.")
+      m <- 6
+    }
+  }
+
   # Step 1: Transform covariates (done on full data)
-  Z <- transform_covariates(X, method = transform_method, k = k, ...)
+  Z <- transform_covariates(X, method = transform_method, basis_dim = basis_dim, ...)
 
   # Step 2: Compute residuals (done on full data)
   residuals <- compute_residuals(A, Y, mu1, mu0, pi)
@@ -649,16 +442,16 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
     }
 
     # Create fold indices
-    fold_indices <- sample(rep(1:K, length.out = n))
+    fold_indices <- sample(rep(1:n_folds, length.out = n))
 
     # Storage for fold-specific estimates
-    ATE_folds <- matrix(0, nrow = K, ncol = m - 1)
-    HOIF1_folds <- matrix(0, nrow = K, ncol = m - 1)
-    HOIF0_folds <- matrix(0, nrow = K, ncol = m - 1)
-    IIFF1_folds <- matrix(0, nrow = K, ncol = m - 1)
-    IIFF0_folds <- matrix(0, nrow = K, ncol = m - 1)
+    ATE_folds <- matrix(0, nrow = n_folds, ncol = m - 1)
+    HOIF1_folds <- matrix(0, nrow = n_folds, ncol = m - 1)
+    HOIF0_folds <- matrix(0, nrow = n_folds, ncol = m - 1)
+    IIFF1_folds <- matrix(0, nrow = n_folds, ncol = m - 1)
+    IIFF0_folds <- matrix(0, nrow = n_folds, ncol = m - 1)
 
-    for (j in 1:K) {
+    for (j in 1:n_folds) {
       # Define fold indices
       I_j <- which(fold_indices == j)
       I_not_j <- which(fold_indices != j)
@@ -773,7 +566,7 @@ plot.hoif_ate <- function(x, ...) {
 #'   \item{U6}{Sixth-order U-statistic}
 #' }
 #'
-#'@importFrom sumt eigenMapMatMult
+#'@importFrom SMUT eigenMapMatMult
 #' @details
 #' All diagonal elements of intermediate kernel matrices are removed to avoid
 #' self-interactions. Matrix multiplications are performed via
@@ -924,7 +717,7 @@ diag_Mat <- function(mat) {
 #' recursive construction of higher-order U-statistics.
 #'
 #' @param A1,A2,A3 Numeric square matrices of the same dimension.
-#' @importFrom sumt eigenMapMatMult
+#' @importFrom SMUT eigenMapMatMult
 #' @return A list containing kernel matrices \code{Ker2}, \code{Ker3}, and \code{Ker4}.
 #' @keywords internal
 calculate_u_Ker_4 <- function(A1, A2, A3) {
@@ -965,7 +758,7 @@ calculate_u_Ker_4 <- function(A1, A2, A3) {
 #' \code{calculate_u_Ker_4()}.
 #'
 #' @param A1,A2,A3,A4 Numeric square matrices of the same dimension.
-#' @importFrom sumt eigenMapMatMult
+#' @importFrom SMUT eigenMapMatMult
 #' @return A list containing kernel matrices \code{Ker2}, \code{Ker3},
 #' \code{Ker4}, and \code{Ker5}.
 #' @keywords internal
