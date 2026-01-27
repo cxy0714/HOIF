@@ -238,7 +238,7 @@ stopifnot(all.equal(results_2, results_3, tolerance = 1e-6))
 stopifnot(all.equal(results_1, results_3, tolerance = 1e-6))
 
 # Test ustat
-U2 <- ustat(list(residuals$R1, B_matrices$B1, residuals$r1), "a,ab,c->", backend = "torch")
+U2 <- ustat(list(residuals$R1, B_matrices$B1, residuals$r1), "a,ab,b->", backend = "torch")
 U3 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,c->", backend = "torch")
 U4 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,d->", backend = "torch")
 U5 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,e->", backend = "torch")
