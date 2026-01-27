@@ -17,13 +17,13 @@
 
 #show: template.with(
   title: "Algorithm of HOIF estimators for ATE",
-  authors: (
-    (name: "Xingyu Chen", affiliation-id: 1, orcid: "https://orcid.org/0009-0008-0823-4406"),
-  ),
-  affiliations: (
-    (id: 1, name: "School of Mathematical Sciencei, Shanghai Jiao Tong University, China"),
-  ),
-  date: date,
+  // authors: (
+  //   (name: "Xingyu Chen", affiliation-id: 1, orcid: "https://orcid.org/0009-0008-0823-4406"),
+  // ),
+  // affiliations: (
+  //   (id: 1, name: "School of Mathematical Sciencei, Shanghai Jiao Tong University, China"),
+  // ),
+  // date: date,
   heading-color: rgb("#000000"),
   link-color: rgb("#008002"),
 )
@@ -162,33 +162,4 @@ $
 $
 - *Output*: $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$.
 
-#pagebreak()
-= Implementation Notes for Developer (LLM Guidance)
 
-#quote(block: true)[
-  *Developer Instruction*: When implementing this algorithm in R (or Python), please pay strict attention to the following technical details to ensure the statistical validity of the HOIF estimators.
-]
-
-== Basis Transformation Strategy
-- *Input Scaling*: Always scale covariates $X$ to $[0, 1]$ before applying B-splines or Fourier transformations.
-- *Additive Construction*: For $X in bb(R)^p$, generate bases for each dimension separately and concatenate them: $bold(Z) = [bold(1), phi(X_1), dots, phi(X_p)]$. Do not include interaction terms unless specified.
-- *Intercept*: Ensure a constant term (column of 1s) is included in $bold(Z)$ to maintain the centering property of the Gram matrix.
-
-== Numerical Stability in Matrix Inversion
-- *High-Dimensional Case*: If $k approx n$, the Gram matrix $bold(G)_a$ will be ill-conditioned.
-- *Efficiency*: In R, prefer `chol2inv(chol(Ga))` for speed, but wrap it in a `tryCatch` to handle non-positive-definite cases.
-
-== Sample Splitting (Cross-Fitting) Logic
-This is the most critical part of the implementation. For each fold $k in {1, dots, K}$:
-- *Training Set ($I_(-k)$)*: Used *only* to compute $bold(Omega)_{a, (-k)}$.
-- *Estimation Set ($I_k$)*: Used to compute the local projection matrix $bold(B)_{a, k}$ and the $U$-statistics.
-- *Index Alignment*: Ensure that the residuals $R_i^a$ and $r_i^a$ are indexed by $I_k$ and their order matches the rows/columns of $bold(B)_{a, k}$.
-  - $bold(B)_{a, k}$ should be of size $|I_k| times |I_k|$.
-  - $R_("loc")$ and $r_("loc")$ should be vectors of length $|I_k|$.
-
-
-== Data Structure for Output
-Return a nested list or a named list containing:
-- `ATE`: A vector of length $m-1$ containing estimators from order $2$ to $m$.
-- `IIFF_components`: The raw increment at each order to monitor convergence.
-- `Convergence_Plot`: (Optional) A plot of $"ATE"_l$ vs. $l$ to verify if the estimator stabilizes as order increases.

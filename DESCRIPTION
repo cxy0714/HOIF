@@ -5,7 +5,9 @@ Version: 0.1.0
 Authors@R: person("Xingyu", "Chen", 
                   email = "xingyuchen0714@sjtu.edu.cn",
                   role = c("aut", "cre"),
-                  comment = c(ORCID = "0009-0008-0823-4406"))
+          person("Lin", "Liu",
+           email = "linliu@sjtu.edu.cn",
+           role = "aut"))
 Description: Implements Higher Order Influence Function (HOIF) estimators for
     Average Treatment Effect (ATE) estimation. The package provides functions
     to compute HOIF estimators using U-statistics with various basis 

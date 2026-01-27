@@ -1,4 +1,3 @@
-
 devtools::load_all()
 
 library(ustats)
@@ -42,8 +41,8 @@ cat("========================================\n")
 # ------------------------------------------------------------------------------
 set.seed(123)
 
-n <- 1000   # sample size
-p <- 50     # number of covariates
+n <- 1000 # sample size
+p <- 50 # number of covariates
 
 # Covariates
 X <- matrix(rnorm(n * p), ncol = p)
@@ -90,7 +89,7 @@ mu0_hat_all <- predict(cv_fit0, newx = X, s = "lambda.min")
 mu1 <- as.vector(mu1_hat_all)
 mu0 <- as.vector(mu0_hat_all)
 
-# Known propensity score (since treatment is randomized)
+# Known propensity score
 pi <- rep(0.5, n)
 
 
@@ -247,7 +246,7 @@ U6 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_ma
 
 cat("\n✓ ustat works with both formats!\n")
 
-R_u <-  calculate_u_statistics_six(Vector_1 = residuals$R1, Vector_2 = residuals$r1, A1 =  B_matrices$B1, A2 = B_matrices$B1, A3 = B_matrices$B1, A4 = B_matrices$B1, A5 = B_matrices$B1)
+R_u <- calculate_u_statistics_six(Vector_1 = residuals$R1, Vector_2 = residuals$r1, A1 = B_matrices$B1, A2 = B_matrices$B1, A3 = B_matrices$B1, A4 = B_matrices$B1, A5 = B_matrices$B1)
 str(R_u)
 str(c(U2, U3, U4, U5, U6))
 
@@ -266,7 +265,3 @@ print(str(expr1))
 cat("Output:", result1, "\n")
 cat("Expected: a,ab,bc,c->\n")
 stopifnot(result1 == "a,ab,bc,c->")
-
-
-
-
