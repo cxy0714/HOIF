@@ -21,7 +21,7 @@ with an R interface provided by
 
 For theoretical and algorithmic details on computing higher-order U-statistics arising in HOIF, see Section 4.1 of<sup>4</sup>.
 
-The overall algorithmic workflow of HOIF is illustrated in `typst/algo.pdf`.
+The overall algorithmic workflow of HOIF is illustrated in [`typst/algo.pdf`](test/manual_test.R).
 
 ---
 
@@ -51,7 +51,7 @@ check_ustats_setup()
 
 ## Example
 
-A more comprehensive example can be found in `test/manual_test.R`.
+A more comprehensive example can be found in [`test/manual_test.R`](test/manual_test.R).
 
 ```r
 set.seed(123)
