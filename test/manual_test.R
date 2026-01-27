@@ -92,7 +92,7 @@ results_2 <- compute_hoif_estimators(residuals, B_matrices, m, backend_2)
 
 
 # Test with Einstein notation (string)
-U3 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,c->", backend = "torch")
+U3 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,c->", backend = "torch", dtype = NULL)
 
 L1 <- sweep(B_matrices$B1, 1, residuals$R1, "*")
 R1 <- sweep(B_matrices$B1, 2, residuals$r1, "*")
