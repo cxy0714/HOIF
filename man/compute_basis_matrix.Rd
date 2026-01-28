@@ -4,7 +4,7 @@
 \alias{compute_basis_matrix}
 \title{Compute basis projection matrices}
 \usage{
-compute_basis_matrix(Z, Omega1, Omega0)
+compute_basis_matrix(Z, A, Omega1, Omega0)
 }
 \arguments{
 \item{Z}{Basis matrix (n x k)}

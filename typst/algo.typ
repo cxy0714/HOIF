@@ -32,16 +32,38 @@
 
 #outline()
 
+
+#let ustat_url = "https://github.com/your-repo/ustat"
+#let ustat = link(ustat_url)[#math.upright("ustat")]
+
 = Input data
 
-Let the observed data be denoted by $(X_i, A_i, Y_i)_{i=1}^{n}$, where $A_i in {0, 1}$ is the binary treatment indicator, $Y_i in bb(R)$ is the observed outcome, and $X_i in bb(R)^p$ represents the vector of covariates.
+Let the observed data be denoted by $(X_i, A_i, Y_i)_(i=1)^(n)$, where $A_i in {0, 1}$ is the binary treatment indicator, $Y_i in bb(R)$ is the observed outcome, and $X_i in bb(R)^p$ represents the vector of covariates.
 
 We assume the availability of pre-computed nuisance function estimators: the conditional mean outcomes $(hat(mu)(1, X_i), hat(mu)(0, X_i))$ and the propensity score $hat(pi)(X_i)$. All these estimators map to the real line $bb(R)$.
 
 
+= Target formula
 
-#let ustat_url = "https://github.com/your-repo/ustat"
-#let ustat = link(ustat_url)[#math.upright("ustat")]
+When not sample splitting :
+
+$
+  bb("HOIF")^a_m & = (-1)^m ((n-m)!) /(n!) sum_(1 <= i_1 eq.not i_2 eq.not dots eq.not <= i_m) R^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) - hat(Sigma)^a ) hat(Omega)^a} Z_(i_m) r^a_(i_m)
+$
+
+Here
+$
+             a & in {0,1} \
+       R^a_(i) & = Y_i - hat(mu)(a,X_i) \
+       r^a_(i) & = 1 - s^a / ((hat(pi)(X_i))^a (1 - hat(pi)(X_i))^(1-a)) \
+       s^a_(i) & = A^a (1-A)^(1-a) \
+           Z_i & = X_i \
+  hat(Sigma)^a & = 1/n sum_(i=1)^(n) s^a_(i) Z_i Z_i^(top) \
+  hat(Omega)^a & = (hat(Sigma)^a)^(-1)
+$
+
+When sample splitting in K folds :$(I_1,I_2,dots, I_K)$, then For j in (1 : K): denote sample in $I_j$ are estimation sample, no in $I_j$ are train sample. using the train sample to calculate $hat(Omega)$, and then using the trained $hat(Omega)$ and the estimation sample to calculate $bb("HOIF")^a_m$.
+
 
 = The Integrated Algorithm (Main Interface)
 

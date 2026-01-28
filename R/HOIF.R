@@ -87,11 +87,11 @@ transform_covariates <- function(X, method = "splines", basis_dim, degree = 3, p
 #' @export
 compute_residuals <- function(A, Y, mu1, mu0, pi) {
   # For a = 1
-  R1 <- A * (Y - mu1)
+  R1 <- Y - mu1
   r1 <- 1 - A / pi
 
   # For a = 0
-  R0 <- (1 - A) * (Y - mu0)
+  R0 <- Y - mu0
   r0 <- 1 - (1 - A) / (1 - pi)
 
   return(list(R1 = R1, r1 = r1, R0 = R0, r0 = r0))
@@ -165,62 +165,19 @@ compute_gram_inverse <- function(Z, A, method = "direct") {
 #' Compute basis projection matrices
 #'
 #' @param Z Basis matrix (n x k)
+#' @param A treament weight (n x 1)
 #' @param Omega1 Inverse Gram matrix for treatment group
 #' @param Omega0 Inverse Gram matrix for control group
 #'
 #' @return List with B1 and B0 (projection matrices)
 #' @export
-compute_basis_matrix <- function(Z, Omega1, Omega0) {
-  B1 <- Z %*% Omega1 %*% t(Z)
-  B0 <- Z %*% Omega0 %*% t(Z)
+compute_basis_matrix <- function(Z, A, Omega1, Omega0) {
+  wZ_1 <- Z * A
+  wZ_0 <-  Z * (1-A)
+  B1 <- Z %*% Omega1 %*% t(wZ_1)
+  B0 <- Z %*% Omega0 %*% t(wZ_0)
 
   return(list(B1 = B1, B0 = B0))
-}
-
-
-#' Convert nested list expression to Einstein notation
-#'
-#' Converts a nested list expression like [[1,2],[2,3],[3,4]] to Einstein
-#' notation like "ab,bc,cd->".
-#'
-#' @param expr_list A list of integer vectors, each of length 2
-#'
-#' @return Character string in Einstein notation
-#' @keywords internal
-#'
-#' @examples
-#' \dontrun{
-#' expr_list_to_einstein([[1,2],[2,3],[3,4]])  # Returns "ab,bc,cd->"
-#' }
-expr_list_to_einstein <- function(expr_list) {
-  # Step 1: Collect all unique indices (as characters for safe naming)
-  all_indices <- sort(unique(unlist(expr_list)))
-
-  if (length(all_indices) > 26) {
-    stop("Too many unique indices (>26); Einstein notation limited to a-z")
-  }
-
-  # Step 2: Map each index to a letter: 1->a, 2->b, ..., 26->z
-  # Use as.character() to avoid numeric name issues
-  index_to_letter <- setNames(letters[seq_along(all_indices)],
-                              as.character(all_indices))
-
-  # Step 3: Convert each group (e.g., c(1,2,3) -> "abc")
-  terms <- sapply(expr_list, function(indices) {
-    # Ensure indices is a vector (even if length 1)
-    idx_chars <- as.character(indices)
-    letters_vec <- index_to_letter[idx_chars]
-
-    # Safety check: any missing?
-    if (any(is.na(letters_vec))) {
-      stop("Found unmapped index in: ", paste(indices, collapse = ", "))
-    }
-
-    paste0(letters_vec, collapse = "")
-  })
-
-  # Step 4: Join with commas and append "->"
-  paste0(paste(terms, collapse = ","), "->")
 }
 
 
@@ -428,7 +385,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
     Omega <- compute_gram_inverse(Z, A, method = inverse_method)
 
     # Step 4: Compute basis matrices
-    B_matrices <- compute_basis_matrix(Z, Omega$Omega1, Omega$Omega0)
+    B_matrices <- compute_basis_matrix(Z, A, Omega$Omega1, Omega$Omega0)
 
     # Step 5: Compute HOIF estimators
     results <- compute_hoif_estimators(residuals, B_matrices, m, backend, pure_R_code)
@@ -463,7 +420,8 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
 
       # Step 4: Compute basis matrices on test set (I_j)
       Z_test <- Z[I_j, , drop = FALSE]
-      B_matrices_j <- compute_basis_matrix(Z_test, Omega_j$Omega1, Omega_j$Omega0)
+      A_test <- A[I_j]
+      B_matrices_j <- compute_basis_matrix(Z_test, A_test, Omega_j$Omega1, Omega_j$Omega0)
 
       # Step 5: Compute HOIF on test set
       residuals_j <- list(
