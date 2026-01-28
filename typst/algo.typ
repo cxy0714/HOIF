@@ -48,7 +48,8 @@ We assume the availability of pre-computed nuisance function estimators: the con
 When not sample splitting :
 
 $
-  bb("HOIF")^a_m & = (-1)^m ((n-m)!) /(n!) sum_(1 <= i_1 eq.not i_2 eq.not dots eq.not <= i_m) R^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) - hat(Sigma)^a ) hat(Omega)^a} Z_(i_m) r^a_(i_m)
+  bb("HOIF")^a_m & = (-1)^m ((n-m)!) /(n!) sum_(1 <= i_1 eq.not i_2 eq.not dots eq.not <= i_m) R^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) - hat(Sigma)^a ) hat(Omega)^a} s^a_(i_m) Z_(i_m) r^a_(i_m) \
+  bb("U")^a_m & = (-1)^m ((n-m)!) /(n!) sum_(1 <= i_1 eq.not i_2 eq.not dots eq.not <= i_m) R^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) { Q^a_(i_s) hat(Omega)^a} s^a_(i_m) Z_(i_m) r^a_(i_m)
 $
 
 Here

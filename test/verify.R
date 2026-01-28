@@ -1,3 +1,50 @@
+
+# Helper function to generate all m-permutations (ordered tuples) of distinct indices
+generate_permutations <- function(indices, m) {
+  n_idx <- length(indices)
+  if (m == 1) {
+    return(matrix(indices, ncol = 1))
+  }
+
+  # Use recursive approach or gtools::permutations
+  # For simplicity, here's a manual approach:
+  # First get all m-combinations, then permute each
+
+  if (m > n_idx) {
+    stop("m cannot be larger than the number of indices")
+  }
+
+  # Get all m-combinations
+  combs <- combn(indices, m, simplify = FALSE)
+
+  # For each combination, generate all permutations
+  all_perms <- list()
+  for (comb in combs) {
+    # Generate all permutations of this combination
+    perms <- permn(comb)  # This will use a helper function
+    all_perms <- c(all_perms, perms)
+  }
+
+  # Convert list to matrix
+  result <- do.call(rbind, lapply(all_perms, function(x) matrix(x, nrow = 1)))
+  return(result)
+}
+
+# Helper function to generate all permutations of a vector
+permn <- function(x) {
+  if (length(x) == 1) {
+    return(list(x))
+  }
+  result <- list()
+  for (i in seq_along(x)) {
+    rest <- x[-i]
+    for (p in permn(rest)) {
+      result <- c(result, list(c(x[i], p)))
+    }
+  }
+  return(result)
+}
+
 compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) {
   # X: n x p covariate matrix
   # A: n-vector of binary treatment (0 or 1)
@@ -12,26 +59,27 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
   n <- length(Y)
   p <- ncol(X)
 
+
+
   # Helper function to compute HOIF for a given a (treatment arm)
-  compute_HOIF_a <- function(a, X_est, A_est, Y_est, R_a_est, s_a_est, r_a_est, Z_est, Omega_a) {
+  compute_HOIF_a <- function( X_est, A_est, Y_est, R_a_est, s_a_est, r_a_est, Z_est, Omega_a) {
     n_est <- length(Y_est)
+    p <- ncol(Z_est)
 
-    # Generate all m-tuples of distinct indices
-    # For small n, we enumerate all combinations
+    # Generate all m-tuples of distinct indices (ordered)
     indices <- 1:n_est
-
-    # Generate all m-combinations without replacement
-    if (m == 1) {
-      tuples <- matrix(indices, ncol = 1)
-    } else {
-      tuples <- combn(indices, m)
-      tuples <- t(tuples)  # Each row is one m-tuple
-    }
-
+    tuples <- generate_permutations(indices, m)
     n_tuples <- nrow(tuples)
 
     # Sum over all m-tuples
     total_sum <- 0
+
+    # Compute Sigma^a from estimation sample
+    Sigma_a_est <- matrix(0, p, p)
+    for (j in 1:n_est) {
+      Sigma_a_est <- Sigma_a_est + s_a_est[j] * Z_est[j, , drop = FALSE] %*% t(Z_est[j, , drop = FALSE])
+    }
+    Sigma_a_est <- Sigma_a_est / n_est
 
     for (k in 1:n_tuples) {
       idx <- tuples[k, ]  # (i_1, i_2, ..., i_m)
@@ -44,19 +92,15 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
         for (s in 2:(m-1)) {
           Q_a_is <- s_a_est[idx[s]] * Z_est[idx[s], , drop = FALSE] %*% t(Z_est[idx[s], , drop = FALSE])
 
-          # Compute Sigma^a from estimation sample
-          Sigma_a_est <- matrix(0, p, p)
-          for (j in 1:n_est) {
-            Sigma_a_est <- Sigma_a_est + s_a_est[j] * Z_est[j, , drop = FALSE] %*% t(Z_est[j, , drop = FALSE])
-          }
-          Sigma_a_est <- Sigma_a_est / n_est
+
 
           term <- term %*% (Q_a_is - Sigma_a_est) %*% Omega_a
+          # term <- term %*% (Q_a_is ) %*% Omega_a
         }
       }
 
       # Final term: Z_{i_m} * r^a_{i_m}
-      term <- term %*% Z_est[idx[m], , drop = FALSE] * r_a_est[idx[m]]
+      term <- term %*% Z_est[idx[m], , drop = FALSE] * r_a_est[idx[m]] *  s_a_est[idx[m]]
 
       total_sum <- total_sum + term[1, 1]
     }
@@ -85,7 +129,7 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
     Sigma_1 <- Sigma_1 / n
     Omega_1 <- solve(Sigma_1)
 
-    HOIF_1_m <- compute_HOIF_a(1, X, A, Y, R_1, s_1, r_1, Z, Omega_1)
+    HOIF_1_m <- compute_HOIF_a( X, A, Y, R_1, s_1, r_1, Z, Omega_1)
 
     # Compute for a = 0
     R_0 <- Y - mu0
@@ -169,11 +213,136 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
 
       HOIF_0_m <- HOIF_0_m + compute_HOIF_a(0, X_est, A_est, Y_est, R_0_est, s_0_est, r_0_est, Z_est, Omega_0_train)
     }
-
-    # Average over folds (optional, depending on your definition)
-    # HOIF_1_m <- HOIF_1_m / K
-    # HOIF_0_m <- HOIF_0_m / K
   }
 
   return(list(HOIF_1_m = HOIF_1_m, HOIF_0_m = HOIF_0_m))
 }
+
+devtools::load_all()
+
+library(ustats)
+library(HOIF)
+
+# ==============================================================================
+# Test 1: Environment Setup
+# ==============================================================================
+cat("\n========================================\n")
+cat("Test 1: Check Environment of ustats \n")
+cat("========================================\n")
+
+library(reticulate)
+py_config()
+
+# setup_ustats()
+
+check_ustats_setup()
+
+
+set.seed(123)
+
+n <- 7 # sample size
+p <- 1 # number of covariates
+
+# Covariates
+X <- matrix(rnorm(n * p), ncol = p)
+
+# Binary treatment assignment (randomized)
+# A <- rbinom(n, 1, 0.5)
+A <- rep(1,n)
+# True coefficient vector (normalized to unit length)
+beta <- runif(p)
+beta <- beta / sqrt(as.numeric(crossprod(beta)))
+
+# Outcome: partially linear model
+Y <- as.numeric(A + X %*% beta + rnorm(n, 0, 0.1))
+
+
+# ------------------------------------------------------------------------------
+# Step 2: Fit nuisance outcome regressions via Lasso
+# ------------------------------------------------------------------------------
+
+mu1 <- as.numeric(1 + X %*% beta + rnorm(n, 0, 0.1))
+mu0 <- as.numeric(0 + X %*% beta + rnorm(n, 0, 0.1))
+
+# Known propensity score
+pi <- rep(0.5, n)
+
+
+# ------------------------------------------------------------------------------
+# Step 3: Configure HOIF estimator with sample splitting
+# ------------------------------------------------------------------------------
+# m               : Order of the HOIF expansion (see ?hoif_ate for details)
+# n_folds         : Number of folds used for cross-fitting
+#                   n_folds = 2 corresponds to the eHOIF setting
+# transform_method: Feature transformation applied to X before estimation.
+#                   "none" means raw covariates are used (see ?hoif_ate)
+
+m <- 5
+n_folds <- 2
+
+cat("Running HOIF with:\n")
+cat("  n =", n, "\n")
+cat("  p =", ncol(X), "\n")
+cat("  order m =", m, "\n")
+cat("  Sample split: TRUE (n_folds =", n_folds, ")\n")
+
+
+# ------------------------------------------------------------------------------
+# Step 4: Run HOIF
+# ------------------------------------------------------------------------------
+results <- hoif_ate(
+  X, A, Y,
+  mu1 = mu1,
+  mu0 = mu0,
+  pi = pi,
+  transform_method = "none",
+  m = m,
+  sample_split = FALSE,
+  n_folds = n_folds,
+  seed = 123,
+  backend = "torch"
+)
+
+cat("\nResults (without sample splitting):\n")
+
+
+results_split <- hoif_ate(
+  X, A, Y,
+  mu1 = mu1,
+  mu0 = mu0,
+  pi = pi,
+  transform_method = "none",
+  m = m,
+  sample_split = TRUE,
+  n_folds = n_folds,
+  seed = 123,
+  backend = "torch"
+)
+
+cat("\nResults (with sample splitting):\n")
+print(results_split)
+
+
+# Step 1: Transform covariates (done on full data)
+Z <- transform_covariates(X, method = "none", basis_dim = p)
+
+# Step 2: Compute residuals (done on full data)
+residuals <- compute_residuals(A, Y, mu1, mu0, pi)
+
+# Step 3: Compute inverse Gram matrices
+Omega <- compute_gram_inverse(Z, A, method = "direct")
+
+# Step 4: Compute basis matrices
+B_matrices <- compute_basis_matrix(Z,A, Omega$Omega1, Omega$Omega0)
+
+# Step 5: Compute HOIF estimators
+results_1 <- compute_hoif_estimators(residuals, B_matrices, m, "torch")
+
+HOIF_2 <- compute_HOIF(X,A,Y,mu1,mu0, pi, m = 2, sample_splitting = 0, K = 2)
+HOIF_3 <- compute_HOIF(X,A,Y,mu1,mu0, pi, m = 3, sample_splitting = 0, K = 2)
+
+U2 <- ustat(list(residuals$R1, B_matrices$B1, residuals$r1), "a,ab,b->", backend = "torch")
+U3 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,c->", backend = "torch")
+U4 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,d->", backend = "torch")
+U5 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,e->", backend = "torch")
+U6 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,ef,f->", backend = "torch")

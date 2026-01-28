@@ -172,10 +172,10 @@ compute_gram_inverse <- function(Z, A, method = "direct") {
 #' @return List with B1 and B0 (projection matrices)
 #' @export
 compute_basis_matrix <- function(Z, A, Omega1, Omega0) {
-  wZ_1 <- Z * A
-  wZ_0 <-  Z * (1-A)
-  B1 <- Z %*% Omega1 %*% t(wZ_1)
-  B0 <- Z %*% Omega0 %*% t(wZ_0)
+  Z_weighted1 <- Z * A
+  Z_weighted0<-  Z * (1-A)
+  B1 <- Z %*% Omega1 %*% t(Z_weighted1)
+  B0 <- Z %*% Omega0 %*% t(Z_weighted0)
 
   return(list(B1 = B1, B0 = B0))
 }
@@ -257,7 +257,7 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 
       # Construct expression E_j^a directly as nested list
       # For j tensors: [1, [1,2], [2,3], ..., [j-1,j], j]
-      # This represents: R_i * B_{i,i1} * B_{i1,i2} * ... * r_{ij}
+      # This represents: R_{i_1} * B_{i_1,i_2} * B_{i_2,i_3} * ... * B_{i_{j-1},i_{j}} * r_{i_j}
       E_j <- build_Ej(j)
 
       # Compute U-statistics using ustat function
