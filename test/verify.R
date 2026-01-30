@@ -45,7 +45,34 @@ permn <- function(x) {
   return(result)
 }
 
-compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) {
+compute_HOIF_sequence <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 2, seed) {
+  HOIF_1_m <- numeric(m-1)
+  HOIF_0_m <- numeric(m-1)
+  IIFF_1_m <- numeric(m-1)
+  IIFF_0_m <- numeric(m-1)
+  for (i in 2:m)
+  {
+    results <- compute_HOIF(X, A, Y, mu1, mu0, pi, i, sample_splitting, K,seed )
+    IIFF_1_m[i -1] <- results$IIFF_1_m
+    IIFF_0_m[i -1] <- results$IIFF_0_m
+  }
+  for ( i in 2:m) {
+    for ( j in 2 : i){
+
+    HOIF_1_m[i -1] <- HOIF_1_m[i -1] + IIFF_1_m[j - 1]
+    HOIF_0_m[i -1] <- HOIF_0_m[i -1] + IIFF_0_m[j - 1]
+    }
+  }
+  return(
+    list(
+      HOIF_1_m = HOIF_1_m,
+      HOIF_0_m = HOIF_0_m,
+      IIFF_1_m = IIFF_1_m,
+      IIFF_0_m = IIFF_0_m
+    )
+  )
+}
+compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 2, seed) {
   # X: n x p covariate matrix
   # A: n-vector of binary treatment (0 or 1)
   # Y: n-vector of outcomes
@@ -62,7 +89,7 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
 
 
   # Helper function to compute HOIF for a given a (treatment arm)
-  compute_HOIF_a <- function( X_est, A_est, Y_est, R_a_est, s_a_est, r_a_est, Z_est, Omega_a) {
+  compute_HOIF_a <- function( X_est, A_est, Y_est, R_a_est, s_a_est, r_a_est, Z_est, Omega_a, Sigma_a) {
     n_est <- length(Y_est)
     p <- ncol(Z_est)
 
@@ -75,11 +102,6 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
     total_sum <- 0
 
     # Compute Sigma^a from estimation sample
-    Sigma_a_est <- matrix(0, p, p)
-    for (j in 1:n_est) {
-      Sigma_a_est <- Sigma_a_est + s_a_est[j] * Z_est[j, , drop = FALSE] %*% t(Z_est[j, , drop = FALSE])
-    }
-    Sigma_a_est <- Sigma_a_est / n_est
 
     for (k in 1:n_tuples) {
       idx <- tuples[k, ]  # (i_1, i_2, ..., i_m)
@@ -94,7 +116,7 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
 
 
 
-          term <- term %*% (Q_a_is - Sigma_a_est) %*% Omega_a
+          term <- term %*% (Q_a_is - Sigma_a) %*% Omega_a
           # term <- term %*% (Q_a_is ) %*% Omega_a
         }
       }
@@ -129,7 +151,7 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
     Sigma_1 <- Sigma_1 / n
     Omega_1 <- solve(Sigma_1)
 
-    HOIF_1_m <- compute_HOIF_a( X, A, Y, R_1, s_1, r_1, Z, Omega_1)
+    IIFF_1_m <- compute_HOIF_a( X, A, Y, R_1, s_1, r_1, Z, Omega_1, Sigma_1)
 
     # Compute for a = 0
     R_0 <- Y - mu0
@@ -144,23 +166,22 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
     Sigma_0 <- Sigma_0 / n
     Omega_0 <- solve(Sigma_0)
 
-    HOIF_0_m <- compute_HOIF_a(0, X, A, Y, R_0, s_0, r_0, Z, Omega_0)
+    IIFF_0_m <- compute_HOIF_a( X, A, Y, R_0, s_0, r_0, Z, Omega_0, Sigma_0)
 
   } else {
     # Sample splitting with K folds
-
+    set.seed(seed)
     # Create fold indices
-    folds <- cut(seq(1, n), breaks = K, labels = FALSE)
-    folds <- sample(folds)  # Randomly assign to folds
+    fold_indices <- sample(rep(1:n_folds, length.out = n))
 
-    HOIF_1_m <- 0
-    HOIF_0_m <- 0
+    IIFF_1_m <- numeric(K)
+    IIFF_0_m <- numeric(K)
 
     for (j in 1:K) {
       # Estimation sample (fold j)
-      est_idx <- which(folds == j)
+      est_idx <- which(fold_indices == j)
       # Training sample (all other folds)
-      train_idx <- which(folds != j)
+      train_idx <- which(fold_indices != j)
 
       # Training data
       X_train <- X[train_idx, , drop = FALSE]
@@ -195,7 +216,7 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
       Sigma_1_train <- Sigma_1_train / length(train_idx)
       Omega_1_train <- solve(Sigma_1_train)
 
-      HOIF_1_m <- HOIF_1_m + compute_HOIF_a(1, X_est, A_est, Y_est, R_1_est, s_1_est, r_1_est, Z_est, Omega_1_train)
+      IIFF_1_m[j] <-  compute_HOIF_a( X_est, A_est, Y_est, R_1_est, s_1_est, r_1_est, Z_est, Omega_1_train, Sigma_1_train)
 
       # For a = 0
       s_0_train <- 1 - A_train
@@ -211,11 +232,13 @@ compute_HOIF <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, K = 5) 
       Sigma_0_train <- Sigma_0_train / length(train_idx)
       Omega_0_train <- solve(Sigma_0_train)
 
-      HOIF_0_m <- HOIF_0_m + compute_HOIF_a(0, X_est, A_est, Y_est, R_0_est, s_0_est, r_0_est, Z_est, Omega_0_train)
+      IIFF_0_m[j] <-  compute_HOIF_a( X_est, A_est, Y_est, R_0_est, s_0_est, r_0_est, Z_est, Omega_0_train, Sigma_0_train)
     }
+    IIFF_0_m <- mean(IIFF_0_m)
+    IIFF_1_m <- mean(IIFF_1_m)
   }
 
-  return(list(HOIF_1_m = HOIF_1_m, HOIF_0_m = HOIF_0_m))
+  return(list(IIFF_1_m = IIFF_1_m, IIFF_0_m = IIFF_0_m))
 }
 
 devtools::load_all()
@@ -240,15 +263,15 @@ check_ustats_setup()
 
 set.seed(123)
 
-n <- 7 # sample size
+n <- 10 # sample size
 p <- 1 # number of covariates
 
 # Covariates
 X <- matrix(rnorm(n * p), ncol = p)
 
 # Binary treatment assignment (randomized)
-# A <- rbinom(n, 1, 0.5)
-A <- rep(1,n)
+A <- rbinom(n, 1, 0.5)
+# A <- rep(1,n)
 # True coefficient vector (normalized to unit length)
 beta <- runif(p)
 beta <- beta / sqrt(as.numeric(crossprod(beta)))
@@ -277,31 +300,15 @@ pi <- rep(0.5, n)
 # transform_method: Feature transformation applied to X before estimation.
 #                   "none" means raw covariates are used (see ?hoif_ate)
 
+
 m <- 5
 n_folds <- 2
-
-cat("Running HOIF with:\n")
-cat("  n =", n, "\n")
-cat("  p =", ncol(X), "\n")
-cat("  order m =", m, "\n")
-cat("  Sample split: TRUE (n_folds =", n_folds, ")\n")
-
+seed <- 123
 
 # ------------------------------------------------------------------------------
 # Step 4: Run HOIF
 # ------------------------------------------------------------------------------
-results <- hoif_ate(
-  X, A, Y,
-  mu1 = mu1,
-  mu0 = mu0,
-  pi = pi,
-  transform_method = "none",
-  m = m,
-  sample_split = FALSE,
-  n_folds = n_folds,
-  seed = 123,
-  backend = "torch"
-)
+
 
 cat("\nResults (without sample splitting):\n")
 
@@ -315,7 +322,7 @@ results_split <- hoif_ate(
   m = m,
   sample_split = TRUE,
   n_folds = n_folds,
-  seed = 123,
+  seed = seed,
   backend = "torch"
 )
 
@@ -323,26 +330,35 @@ cat("\nResults (with sample splitting):\n")
 print(results_split)
 
 
-# Step 1: Transform covariates (done on full data)
-Z <- transform_covariates(X, method = "none", basis_dim = p)
+HOIF_test_split <- compute_HOIF_sequence(X,A,Y,mu1,mu0, pi, m = m, sample_splitting = 1, K = n_folds,seed = seed)
 
-# Step 2: Compute residuals (done on full data)
-residuals <- compute_residuals(A, Y, mu1, mu0, pi)
+all.equal(results_split$HOIF1, HOIF_test_split$HOIF_1_m)
+results_split$HOIF1
+HOIF_test_split$HOIF_1_m
+all.equal(results_split$HOIF0, HOIF_test_split$HOIF_0_m)
+results_split$HOIF0
+HOIF_test_split$HOIF_0_m
 
-# Step 3: Compute inverse Gram matrices
-Omega <- compute_gram_inverse(Z, A, method = "direct")
+results <- hoif_ate(
+  X, A, Y,
+  mu1 = mu1,
+  mu0 = mu0,
+  pi = pi,
+  transform_method = "none",
+  m = m,
+  sample_split = FALSE,
+  n_folds = n_folds,
+  seed = seed,
+  backend = "torch"
+)
 
-# Step 4: Compute basis matrices
-B_matrices <- compute_basis_matrix(Z,A, Omega$Omega1, Omega$Omega0)
+HOIF_test <- compute_HOIF_sequence(X,A,Y,mu1,mu0, pi, m = m, sample_splitting = 0, K = n_folds,seed = seed)
 
-# Step 5: Compute HOIF estimators
-results_1 <- compute_hoif_estimators(residuals, B_matrices, m, "torch")
 
-HOIF_2 <- compute_HOIF(X,A,Y,mu1,mu0, pi, m = 2, sample_splitting = 0, K = 2)
-HOIF_3 <- compute_HOIF(X,A,Y,mu1,mu0, pi, m = 3, sample_splitting = 0, K = 2)
+all.equal(results$HOIF1, HOIF_test$HOIF_1_m )
+results$HOIF1
+HOIF_test$HOIF_1_m
 
-U2 <- ustat(list(residuals$R1, B_matrices$B1, residuals$r1), "a,ab,b->", backend = "torch")
-U3 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,c->", backend = "torch")
-U4 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,d->", backend = "torch")
-U5 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,e->", backend = "torch")
-U6 <- ustat(list(residuals$R1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, B_matrices$B1, residuals$r1), "a,ab,bc,cd,de,ef,f->", backend = "torch")
+all.equal(results$HOIF0, HOIF_test$HOIF_0_m )
+results$HOIF0
+HOIF_test$HOIF_0_m
