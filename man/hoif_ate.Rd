@@ -72,3 +72,7 @@ List with ATE, HOIF, and IIFF estimates
 \description{
 Main function: HOIF estimators for ATE with optional sample splitting
 }
+\seealso{
+\code{\link{compute_HOIF_test}}, which provides a brute-force
+  implementation used internally for correctness checks on small datasets.
+}

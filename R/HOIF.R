@@ -7,7 +7,7 @@
 
 
 
-
+#---------------------------core function----------------------------------
 #' Transform covariates to basis functions
 #'
 #' @param X Matrix of covariates (n x p)
@@ -252,8 +252,8 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
     for (j in 2:m) {
       # Construct tensor list T_j^a
       # T_j^a = list(R^a, B^a, B^a, ..., B^a (j-1 times), r^a)
-      T_j_1 <- c(list(R1), rep(list(B1), j - 1), list(r1))
-      T_j_0 <- c(list(R0), rep(list(B0), j - 1), list(r0))
+      T_j_1 <- c(list(r1), rep(list(B1), j - 1), list(R1))
+      T_j_0 <- c(list(r0), rep(list(B0), j - 1), list(R0))
 
       # Construct expression E_j^a directly as nested list
       # For j tensors: [1, [1,2], [2,3], ..., [j-1,j], j]
@@ -268,9 +268,9 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
     }
   } else {
     # Compute U-statistics using pure R fallback (up to 6th order)
-    U_list_1 <- calculate_u_statistics_six(Vector_1 = R1, Vector_2 = r1,
+    U_list_1 <- calculate_u_statistics_pure_r_six(Vector_1 = r1, Vector_2 = R1,
                                            A1 = B1, A2 = B1, A3 = B1, A4 = B1, A5 = B1)
-    U_list_0 <- calculate_u_statistics_six(Vector_1 = R0, Vector_2 = r0,
+    U_list_0 <- calculate_u_statistics_pure_r_six(Vector_1 = r0, Vector_2 = R0,
                                            A1 = B0, A2 = B0, A3 = B0, A4 = B0, A5 = B0)
     for (j in 2:m) {
       U1[j] <- (-1)^j * U_list_1[[j - 1]]
@@ -341,6 +341,8 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 #' @param ... Additional arguments passed to transform_covariates
 #'
 #' @return List with ATE, HOIF, and IIFF estimates
+#' @seealso \code{\link{compute_HOIF_test}}, which provides a brute-force
+#'   implementation used internally for correctness checks on small datasets.
 #' @export
 hoif_ate <- function(X, A, Y, mu1, mu0, pi,
                      transform_method = "splines",
@@ -536,7 +538,7 @@ plot.hoif_ate <- function(x, ...) {
 #' }
 #'
 #' @export
-calculate_u_statistics_six <- function(Vector_1, Vector_2, A1, A2 , A3, A4, A5) {
+calculate_u_statistics_pure_r_six <- function(Vector_1, Vector_2, A1, A2 , A3, A4, A5) {
   # Ensure input matrices are square and of the same size
   n <- nrow(A1)
   if (!(nrow(A2) == n &&
@@ -756,3 +758,341 @@ calculate_u_Ker_5 <- function(A1, A2, A3, A4) {
   ))
 }
 
+
+#----------------------------test function brute force calculation (only for double check the computation test) ---------------------
+#' Generate All Ordered m-Tuples of Distinct Indices (Brute Force)
+#'
+#' Internal helper function used for brute-force validation of higher-order
+#' influence function (HOIF) calculations. It generates all ordered
+#' \eqn{m}-permutations of a given index set.
+#'
+#' ⚠️ **Warning:** This function has factorial computational complexity and
+#' should only be used for very small sample sizes as part of debugging or
+#' verification routines.
+#'
+#' @param indices Integer vector of indices.
+#' @param m Integer order of the permutation.
+#'
+#' @return A matrix where each row is an ordered \eqn{m}-tuple of distinct indices.
+#'
+#' @keywords internal
+generate_permutations <- function(indices, m) {
+
+  n_idx <- length(indices)
+  if (m == 1) {
+    return(matrix(indices, ncol = 1))
+  }
+
+  # Use recursive approach or gtools::permutations
+  # For simplicity, here's a manual approach:
+  # First get all m-combinations, then permute each
+
+  if (m > n_idx) {
+    stop("m cannot be larger than the number of indices")
+  }
+
+  # Get all m-combinations
+  combs <- combn(indices, m, simplify = FALSE)
+
+  # For each combination, generate all permutations
+  all_perms <- list()
+  for (comb in combs) {
+    # Generate all permutations of this combination
+    perms <- permn(comb)  # This will use a helper function
+    all_perms <- c(all_perms, perms)
+  }
+
+  # Convert list to matrix
+  result <- do.call(rbind, lapply(all_perms, function(x) matrix(x, nrow = 1)))
+  return(result)
+}
+
+#' Generate All Permutations of a Vector (Recursive, Brute Force)
+#'
+#' Internal recursive helper used by \code{generate_permutations()} to enumerate
+#' all permutations of a vector.
+#'
+#' ⚠️ Extremely computationally expensive for vectors longer than ~8 elements.
+#' Only intended for internal brute-force validation code.
+#'
+#' @param x A vector.
+#'
+#' @return A list of vectors, each being a permutation of \code{x}.
+#'
+#' @keywords internal
+permn <- function(x) {
+  if (length(x) == 1) {
+    return(list(x))
+  }
+  result <- list()
+  for (i in seq_along(x)) {
+    rest <- x[-i]
+    for (p in permn(rest)) {
+      result <- c(result, list(c(x[i], p)))
+    }
+  }
+  return(result)
+}
+#' Brute-Force Sequence of Higher-Order Influence Function Estimates (Test Only)
+#'
+#' Computes a sequence of higher-order influence function (HOIF) estimates
+#' from order 2 up to order \code{m} using a brute-force implementation.
+#' This function is **only intended for double-checking correctness** of the
+#' main fast implementation.
+#'
+#' ⚠️ The computation scales combinatorially with both sample size and order
+#' and becomes infeasible beyond very small datasets.
+#'
+#' @param X Covariate matrix (n × p).
+#' @param A Binary treatment vector of length n.
+#' @param Y Outcome vector of length n.
+#' @param mu1 Estimated outcome regression under treatment.
+#' @param mu0 Estimated outcome regression under control.
+#' @param pi Estimated propensity scores.
+#' @param m Maximum order of HOIF to compute.
+#' @param sample_splitting Logical or integer; whether to use sample splitting.
+#' @param n_folds Number of folds for sample splitting.
+#' @param seed Random seed for fold assignment.
+#'
+#' @return A list containing cumulative HOIF and incremental IIFF terms for
+#' both treatment arms.
+#'
+#' @details
+#' This routine repeatedly calls \code{compute_HOIF_test()} and accumulates
+#' incremental influence function terms. It is not optimized and should never
+#' be used in production or large-sample simulations.
+#'
+#' @keywords internal
+compute_HOIF_sequence_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, n_folds = 2, seed) {
+  HOIF_1_m <- numeric(m-1)
+  HOIF_0_m <- numeric(m-1)
+  IIFF_1_m <- numeric(m-1)
+  IIFF_0_m <- numeric(m-1)
+  for (i in 2:m)
+  {
+    results <- compute_HOIF_test(X, A, Y, mu1, mu0, pi, i, sample_splitting, n_folds,seed )
+    IIFF_1_m[i -1] <- results$IIFF_1_m
+    IIFF_0_m[i -1] <- results$IIFF_0_m
+  }
+  for ( i in 2:m) {
+    for ( j in 2 : i){
+
+      HOIF_1_m[i -1] <- HOIF_1_m[i -1] + IIFF_1_m[j - 1]
+      HOIF_0_m[i -1] <- HOIF_0_m[i -1] + IIFF_0_m[j - 1]
+    }
+  }
+  return(
+    list(
+      HOIF_1_m = HOIF_1_m,
+      HOIF_0_m = HOIF_0_m,
+      IIFF_1_m = IIFF_1_m,
+      IIFF_0_m = IIFF_0_m
+    )
+  )
+}
+#' Brute-Force Higher-Order Influence Function Estimator (Test Version)
+#'
+#' Computes the order-\code{m} higher-order influence function (HOIF) term
+#' using an explicit enumeration of all ordered index tuples.
+#'
+#' 🚨 **This implementation is intentionally naive and is provided solely
+#' for validation and debugging purposes.** It should only be used on very
+#' small datasets to verify the correctness of optimized implementations.
+#'
+#' The computational complexity grows factorially with both sample size and
+#' order \code{m}.
+#'
+#' @param X Covariate matrix (n × p).
+#' @param A Binary treatment indicator vector.
+#' @param Y Outcome vector.
+#' @param mu1 Estimated outcome regression under treatment.
+#' @param mu0 Estimated outcome regression under control.
+#' @param pi Estimated propensity scores.
+#' @param m Order of the HOIF term.
+#' @param sample_splitting Whether to use K-fold sample splitting (0 = no).
+#' @param n_folds Number of folds for sample splitting.
+#' @param seed Random seed for reproducibility.
+#'
+#' @return A list with elements:
+#' \describe{
+#'   \item{IIFF_1_m}{Order-\code{m} influence function term for treated units}
+#'   \item{IIFF_0_m}{Order-\code{m} influence function term for control units}
+#' }
+#'
+#' @details
+#' This function directly implements the combinatorial definition of the HOIF
+#' using full enumeration of index permutations. Matrix inverses are computed
+#' explicitly and no numerical stabilization is included.
+#'
+#' This function is part of the package's **internal test infrastructure** and
+#' should not be exported or used in applied analysis.
+#'
+#' @keywords internal
+compute_HOIF_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, n_folds = 2, seed) {
+  # X: n x p covariate matrix
+  # A: n-vector of binary treatment (0 or 1)
+  # Y: n-vector of outcomes
+  # mu1: n-vector of estimated mu(1, X_i)
+  # mu0: n-vector of estimated mu(0, X_i)
+  # pi: n-vector of estimated propensity scores
+  # m: order of the HOIF statistic
+  # sample_splitting: 0 for no splitting, 1 for K-fold splitting
+  # n_folds: number of folds (only used when sample_splitting = 1)
+
+  n <- length(Y)
+  p <- ncol(X)
+
+
+
+  # Helper function to compute HOIF for a given a (treatment arm)
+  compute_HOIF_a <- function( X_est, A_est, Y_est, R_a_est, s_a_est, r_a_est, Z_est, Omega_a, Sigma_a) {
+    n_est <- length(Y_est)
+    p <- ncol(Z_est)
+
+    # Generate all m-tuples of distinct indices (ordered)
+    indices <- 1:n_est
+    tuples <- generate_permutations(indices, m)
+    n_tuples <- nrow(tuples)
+
+    # Sum over all m-tuples
+    total_sum <- 0
+
+    # Compute Sigma^a from estimation sample
+
+    for (k in 1:n_tuples) {
+      idx <- tuples[k, ]  # (i_1, i_2, ..., i_m)
+
+      # Start with R^a_{i_1} * Z_{i_1}^T * Omega^a
+      term <- r_a_est[idx[1]] * (t(Z_est[idx[1], , drop = FALSE]) %*% Omega_a)
+
+      # Middle products for s = 2 to m-1
+      if (m >= 3) {
+        for (s in 2:(m-1)) {
+          Q_a_is <- s_a_est[idx[s]] * Z_est[idx[s], , drop = FALSE] %*% t(Z_est[idx[s], , drop = FALSE])
+
+
+
+          term <- term %*% (Q_a_is - Sigma_a) %*% Omega_a
+          # term <- term %*% (Q_a_is ) %*% Omega_a
+        }
+      }
+
+      # Final term: Z_{i_m} * r^a_{i_m}
+      term <- term %*% Z_est[idx[m], , drop = FALSE] * R_a_est[idx[m]] *  s_a_est[idx[m]]
+
+      total_sum <- total_sum + term[1, 1]
+    }
+
+    # Multiply by coefficient
+    coef <- (-1)^m * factorial(n_est - m) / factorial(n_est)
+
+    return(coef * total_sum)
+  }
+
+  # Main computation
+  if (sample_splitting == 0) {
+    # No sample splitting
+
+    # Compute for a = 1
+    R_1 <- Y - mu1
+    s_1 <- A
+    r_1 <- 1 - s_1 / pi
+    Z <- X
+
+    # Compute Sigma^1 and Omega^1
+    Sigma_1 <- matrix(0, p, p)
+    for (i in 1:n) {
+      Sigma_1 <- Sigma_1 + s_1[i] * Z[i, , drop = FALSE] %*% t(Z[i, , drop = FALSE])
+    }
+    Sigma_1 <- Sigma_1 / n
+    Omega_1 <- solve(Sigma_1)
+
+    IIFF_1_m <- compute_HOIF_a( X, A, Y, R_1, s_1, r_1, Z, Omega_1, Sigma_1)
+
+    # Compute for a = 0
+    R_0 <- Y - mu0
+    s_0 <- 1 - A
+    r_0 <- 1 - s_0 / (1 - pi)
+
+    # Compute Sigma^0 and Omega^0
+    Sigma_0 <- matrix(0, p, p)
+    for (i in 1:n) {
+      Sigma_0 <- Sigma_0 + s_0[i] * Z[i, , drop = FALSE] %*% t(Z[i, , drop = FALSE])
+    }
+    Sigma_0 <- Sigma_0 / n
+    Omega_0 <- solve(Sigma_0)
+
+    IIFF_0_m <- compute_HOIF_a( X, A, Y, R_0, s_0, r_0, Z, Omega_0, Sigma_0)
+
+  } else {
+    # Sample splitting with K folds
+    set.seed(seed)
+    # Create fold indices
+    fold_indices <- sample(rep(1:n_folds, length.out = n))
+
+    IIFF_1_m <- numeric(n_folds)
+    IIFF_0_m <- numeric(n_folds)
+
+    for (j in 1:n_folds) {
+      # Estimation sample (fold j)
+      est_idx <- which(fold_indices == j)
+      # Training sample (all other folds)
+      train_idx <- which(fold_indices != j)
+
+      # Training data
+      X_train <- X[train_idx, , drop = FALSE]
+      A_train <- A[train_idx]
+      Y_train <- Y[train_idx]
+      mu1_train <- mu1[train_idx]
+      mu0_train <- mu0[train_idx]
+      pi_train <- pi[train_idx]
+
+      # Estimation data
+      X_est <- X[est_idx, , drop = FALSE]
+      A_est <- A[est_idx]
+      Y_est <- Y[est_idx]
+      mu1_est <- mu1[est_idx]
+      mu0_est <- mu0[est_idx]
+      pi_est <- pi[est_idx]
+
+      Z_train <- X_train
+      Z_est <- X_est
+
+      # For a = 1
+      s_1_train <- A_train
+      s_1_est <- A_est
+      R_1_est <- Y_est - mu1_est
+      r_1_est <- 1 - s_1_est / pi_est
+
+      # Compute Omega^1 from training data
+      Sigma_1_train <- matrix(0, p, p)
+      for (i in 1:length(train_idx)) {
+        Sigma_1_train <- Sigma_1_train + s_1_train[i] * Z_train[i, , drop = FALSE] %*% t(Z_train[i, , drop = FALSE])
+      }
+      Sigma_1_train <- Sigma_1_train / length(train_idx)
+      Omega_1_train <- solve(Sigma_1_train)
+
+      IIFF_1_m[j] <-  compute_HOIF_a( X_est, A_est, Y_est, R_1_est, s_1_est, r_1_est, Z_est, Omega_1_train, Sigma_1_train)
+
+      # For a = 0
+      s_0_train <- 1 - A_train
+      s_0_est <- 1 - A_est
+      R_0_est <- Y_est - mu0_est
+      r_0_est <- 1 - s_0_est / (1 - pi_est)
+
+      # Compute Omega^0 from training data
+      Sigma_0_train <- matrix(0, p, p)
+      for (i in 1:length(train_idx)) {
+        Sigma_0_train <- Sigma_0_train + s_0_train[i] * Z_train[i, , drop = FALSE] %*% t(Z_train[i, , drop = FALSE])
+      }
+      Sigma_0_train <- Sigma_0_train / length(train_idx)
+      Omega_0_train <- solve(Sigma_0_train)
+
+      IIFF_0_m[j] <-  compute_HOIF_a( X_est, A_est, Y_est, R_0_est, s_0_est, r_0_est, Z_est, Omega_0_train, Sigma_0_train)
+    }
+    IIFF_0_m <- mean(IIFF_0_m)
+    IIFF_1_m <- mean(IIFF_1_m)
+  }
+
+  return(list(IIFF_1_m = IIFF_1_m, IIFF_0_m = IIFF_0_m))
+}

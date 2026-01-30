@@ -2,26 +2,31 @@
 
 ## Introduction
 
-**HOIF** is an implementation of the **Higher-Order Influence Function (HOIF)** estimator for the **Average Treatment Effect (ATE)**. The methodology is based on a series of foundational works by James M. Robins and collaborators<sup>1,2</sup>, along with more recent advances on numerically stable higher-order estimators<sup>3</sup>.
+**HOIF** is an `R` package for the implementation of **Higher-Order Influence Function (HOIF)** estimators for the **Average Treatment Effect (ATE)**. The methodology is based on a series of foundational works by James M. Robins and his collaborators<sup>1,2,3,4</sup>.
 
 ---
 
-## U-Statistics Backend
+## The Core Computation
 
 A core computational component of HOIF is the evaluation of **higher-order U-statistics**.  
-We develop a general algorithm for computing U-statistics using tensor contraction via:
+We develop a general algorithm for computing U-statistics using the powerful Python functions [`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) and [`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html).
 
-- [`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html)  
-- [`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html)
+We have built a Python package, [`ustats-python`](https://github.com/zrq1706/U-Statistics-python/tree/main), along with an R interface provided by [`ustats-R`](https://github.com/cxy0714/U-Statistics-R). Using [`ustats-R`](https://github.com/cxy0714/U-Statistics-R), we developed this `R` package for HOIF estimation of the ATE.
 
-We also analyze computational complexity using graph-theoretic tools. The Python implementation is available in  
-[`ustats-python`](https://github.com/zrq1706/U-Statistics-python/tree/main),  
-with an R interface provided by  
-[`ustats-R`](https://github.com/cxy0714/U-Statistics-R).
+We also analyze computational complexity using graph-theoretic tools in a dedicated paper focused on the computation of higher-order U-statistics<sup>5</sup>.
 
-For theoretical and algorithmic details on computing higher-order U-statistics arising in HOIF, see Section 4.1 of<sup>4</sup>.
+For HOIF estimators of the ATE, a key takeaway is:
 
-The overall algorithmic workflow of HOIF is illustrated in [`typst/algo.pdf`](test/manual_test.R).
+- when the order $m \le 7$, the computational complexity is  
+  $O(n^3 + nk^2 + k^3 + n^2 k)$  
+- when the order $m > 7$, the computational complexity exceeds  
+  $O(n^4 + nk^2 + k^3 + n^2 k)$
+
+Here, $n$ is the sample size and $k$ is the user-defined dimension of the transformed covariates $X$.  
+For more details on computing the higher-order U-statistics arising in HOIF, see Section 4.1 of <sup>5</sup>.
+
+The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`typst/HOIF.pdf`](test/manual_test.R).
+
 
 ---
 
@@ -150,10 +155,12 @@ plot(results_no_split)
 
 ## References
 
-<sup>1</sup> Robins, J., Li, L., Tchetgen Tchetgen, E., & van der Vaart, A. (2008). *Higher order influence functions and minimax estimation of nonlinear functionals*. In **Probability and Statistics: Essays in Honor of David A. Freedman**, 335–421.
+<sup>1</sup> Robins, J., Li, L., Tchetgen Tchetgen, E., & van der Vaart, A. (2008). Higher order influence functions and minimax estimation of nonlinear functionals. In Probability and Statistics: Essays in Honor of David A. Freedman, 335–421.
 
-<sup>2</sup> Robins, J. M., Li, L., Mukherjee, R., Tchetgen Tchetgen, E., & van der Vaart, A. (2017). *Minimax estimation of a functional on a structured high-dimensional model*. **The Annals of Statistics**, 45(5), 1951–1987.
+<sup>2</sup> Robins, J. M., Li, L., Mukherjee, R., Tchetgen Tchetgen, E., & van der Vaart, A. (2017). Minimax estimation of a functional on a structured high-dimensional model. The Annals of Statistics, 45(5), 1951–1987.
 
-<sup>3</sup> Liu, L., & Li, C. (2023). *New √n-consistent, numerically stable higher-order influence function estimators*. arXiv:2302.08097.
+<sup>3</sup> Liu, L., Mukherjee, R., Newey, W. K., & Robins, J. M. (2017). Semiparametric efficient empirical higher order influence function estimators. arXiv:1705.07577.
 
-<sup>4</sup> Chen, X., Zhang, R., & Liu, L. (2025). *On computing and the complexity of computing higher-order U-statistics, exactly*. arXiv:2508.12627.
+<sup>4</sup> Liu, L., & Li, C. (2023). New √n-consistent, numerically stable higher-order influence function estimators. arXiv:2302.08097.
+
+<sup>5</sup> Chen, X., Zhang, R., & Liu, L. (2025). On computing and the complexity of computing higher-order U-statistics, exactly. arXiv:2508.12627.

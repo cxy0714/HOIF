@@ -45,21 +45,31 @@ We assume the availability of pre-computed nuisance function estimators: the con
 
 = Target formula
 
+The core function `hoif_ate()` in this `R` package is to compute the below estimators.
+
+$bb("ATE")_m ( hat(Omega)^a)$ is the $m$-th order higher order influence function(HOIF) estimator for the estimable bias of double robust estimator/ double machine learning/AIPW estimator of average treatment effect (ATE) in causal inference developed by a series works of by James M. Robins and his collaborators
 $
-  bb("IF")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_(1 <= i_1 eq.not i_2 eq.not dots eq.not <= i_m) R^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) -(hat(Omega)^a)^(-1) ) hat(Omega)^a} s^a_(i_m) Z_(i_m) r^a_(i_m) \
-  bb("U")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_(1 <= i_1 eq.not i_2 eq.not dots eq.not <= i_m) R^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) { Q^a_(i_s) hat(Omega)^a} s^a_(i_m) Z_(i_m) r^a_(i_m)
+  bb("ATE")_m ( hat(Omega)^a) & = bb("HOIF")^1_m - bb("HOIF")^0_m \
+  bb("HOIF")^a_m ( hat(Omega)^a) & = sum_(j=2)^m bb("IF")^a_j ( hat(Omega)^a) \
+  bb("IF")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in I_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) -(hat(Omega)^a)^(-1) ) hat(Omega)^a} s^a_(i_m) Z_(i_m) R^a_(i_m) \
+  & = sum_(j=2)^(m) binom(m-2, m-j) bb("U")^a_j ( hat(Omega)^a) \
+  bb("U")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in I_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) { Q^a_(i_s) hat(Omega)^a} s^a_(i_m) Z_(i_m) R^a_(i_m) \
+  & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in I_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) product_(s = 1)^(m-1) {Z_(i_s)^(top) hat(Omega)^a s^a_(i_(s+1)) Z_(i_(s+1)) } R^a_(i_m)
 $
 
-Here
+Where
 $
-             a & in {0,1} \
-       R^a_(i) & = Y_i - hat(mu)(a,X_i) \
-       r^a_(i) & = 1 - s^a / ((hat(pi)(X_i))^a (1 - hat(pi)(X_i))^(1-a)) \
-       s^a_(i) & = A^a (1-A)^(1-a) \
-           Z_i & = X_i \
-  hat(Sigma)^a & = 1/n sum_(i=1)^(n) s^a_(i) Z_i Z_i^(top) \
-  hat(Omega)^a & = (hat(Sigma)^a)^(-1)
+  I_1 "and" I_2 & "construct a partition of the index set" {1,2,dots,n} \
+              a & in {0,1}, \
+        s^a_(i) & = A^a (1-A)^(1-a), \
+        r^a_(i) & = 1 - s^a / ((hat(pi)(X_i))^a (1 - hat(pi)(X_i))^(1-a)), \
+        R^a_(i) & = Y_i - hat(mu)(a,X_i), \
+        s^a_(i) & = A^a (1-A)^(1-a), \
+            Z_i & = serif("transform")(X_i), \
+   hat(Omega)^a & = (1/(|I_2|) sum_(i in I_2) s^a_(i) Z_i Z_i^(top))^(-1), \
 $
+
+
 
 When sample splitting in K folds :$(I_1,I_2,dots, I_K)$, then For j in (1 : K): denote sample in $I_j$ are estimation sample, no in $I_j$ are train sample. using the train sample to calculate $hat(Omega)$, and then using the trained $hat(Omega)$ and the estimation sample to calculate $bb("HOIF")^a_m$.
 

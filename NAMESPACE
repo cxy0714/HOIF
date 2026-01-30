@@ -3,7 +3,7 @@
 S3method(plot,hoif_ate)
 S3method(print,hoif_ate)
 export(build_Ej)
-export(calculate_u_statistics_six)
+export(calculate_u_statistics_pure_r_six)
 export(compute_basis_matrix)
 export(compute_gram_inverse)
 export(compute_hoif_estimators)

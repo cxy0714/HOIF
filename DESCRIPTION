@@ -2,9 +2,9 @@ Package: HOIF
 Type: Package
 Title: Higher Order Influence Function Estimators for Average Treatment Effects
 Version: 0.1.0
-Authors@R: person("Xingyu", "Chen", 
+Authors@R: c(person("Xingyu", "Chen", 
                   email = "xingyuchen0714@sjtu.edu.cn",
-                  role = c("aut", "cre"),
+                  role = c("aut", "cre")),
           person("Lin", "Liu",
            email = "linliu@sjtu.edu.cn",
            role = "aut"))
@@ -32,6 +32,7 @@ Suggests:
     MASS,
     knitr,
     rmarkdown
+Config/testthat/edition: 3   
 Config/reticulate:
     list(
         packages = list(

@@ -9,6 +9,8 @@ compute_basis_matrix(Z, A, Omega1, Omega0)
 \arguments{
 \item{Z}{Basis matrix (n x k)}
 
+\item{A}{treament weight (n x 1)}
+
 \item{Omega1}{Inverse Gram matrix for treatment group}
 
 \item{Omega0}{Inverse Gram matrix for control group}
