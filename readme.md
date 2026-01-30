@@ -12,7 +12,7 @@ A core computational component of HOIF is the evaluation of **higher-order U-sta
 
 We have developed a general algorithm for computing  U-statistics using the powerful Python functions [`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) and [`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html).
 
-We have built a Python package, [`ustats-python`](https://github.com/zrq1706/U-Statistics-python/tree/main), along with an R interface provided by [`ustats-R`](https://github.com/cxy0714/U-Statistics-R). Using [`ustats-R`](https://github.com/cxy0714/U-Statistics-R), we developed this `R` package for HOIF estimation of the ATE.
+We have built a Python package, [`u-stats-python`](https://github.com/zrq1706/U-Statistics-python/tree/main), along with an R interface provided by [`ustats-R`](https://github.com/cxy0714/U-Statistics-R). Using [`ustats-R`](https://github.com/cxy0714/U-Statistics-R), we developed this `R` package for HOIF estimation of the ATE.
 
 We also analyze computational complexity using graph-theoretic tools in a dedicated paper focused on the **exact computation** of higher-order U-statistics [5].
 
