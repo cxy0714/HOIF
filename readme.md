@@ -26,7 +26,7 @@ For HOIF estimators of the ATE, a key takeaway is:
 Here, $n$ is the sample size and $k$ is the user-defined dimension of the transformed covariates $X$.  
 For more details on computing the higher-order U-statistics arising in HOIF, see Section 4.1 of [5].
 
-The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`typst/HOIF.pdf`](test/manual_test.R).
+The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`inst/latex/HOIF.pdf`](inst/latex/HOIF.pdf).
 
 
 ---
@@ -57,7 +57,7 @@ check_ustats_setup()
 
 ## Example
 
-A more comprehensive example can be found in [`test/manual_test.R`](test/manual_test.R).
+A more comprehensive example can be found in [`test/manual_test.R`](test_manual/manual_test.R).
 
 ```r
 set.seed(123)
