@@ -2,18 +2,19 @@
 
 ## Introduction
 
-**HOIF** is an `R` package for the implementation of **Higher-Order Influence Function (HOIF)** estimators for the **Average Treatment Effect (ATE)**. The methodology is based on a series of foundational works by James M. Robins and his collaborators<sup>1,2,3,4</sup>.
+**HOIF** is an `R` package for the implementation of **Higher-Order Influence Function (HOIF)** estimators for the **Average Treatment Effect (ATE)**. The methodology is based on a series of foundational works by James M. Robins and his collaborators [1–4].
 
 ---
 
 ## The Core Computation
 
 A core computational component of HOIF is the evaluation of **higher-order U-statistics**.  
-We develop a general algorithm for computing U-statistics using the powerful Python functions [`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) and [`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html).
+
+We have developed a general algorithm for computing  U-statistics using the powerful Python functions [`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) and [`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html).
 
 We have built a Python package, [`ustats-python`](https://github.com/zrq1706/U-Statistics-python/tree/main), along with an R interface provided by [`ustats-R`](https://github.com/cxy0714/U-Statistics-R). Using [`ustats-R`](https://github.com/cxy0714/U-Statistics-R), we developed this `R` package for HOIF estimation of the ATE.
 
-We also analyze computational complexity using graph-theoretic tools in a dedicated paper focused on the computation of higher-order U-statistics<sup>5</sup>.
+We also analyze computational complexity using graph-theoretic tools in a dedicated paper focused on the **exact computation** of higher-order U-statistics [5].
 
 For HOIF estimators of the ATE, a key takeaway is:
 
@@ -23,7 +24,7 @@ For HOIF estimators of the ATE, a key takeaway is:
   $O(n^4 + nk^2 + k^3 + n^2 k)$
 
 Here, $n$ is the sample size and $k$ is the user-defined dimension of the transformed covariates $X$.  
-For more details on computing the higher-order U-statistics arising in HOIF, see Section 4.1 of <sup>5</sup>.
+For more details on computing the higher-order U-statistics arising in HOIF, see Section 4.1 of [5].
 
 The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`typst/HOIF.pdf`](test/manual_test.R).
 

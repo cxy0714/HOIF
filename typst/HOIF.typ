@@ -47,7 +47,7 @@ We assume the availability of pre-computed nuisance function estimators: the con
 
 The core function `hoif_ate()` in this `R` package is to compute the below estimators.
 
-$bb("ATE")_m ( hat(Omega)^a)$ is the $m$-th order higher order influence function(HOIF) estimator for the estimable bias of double robust estimator/ double machine learning/AIPW estimator of average treatment effect (ATE) in causal inference developed by a series works of by James M. Robins and his collaborators
+$bb("ATE")_m ( hat(Omega)^a)$ is the $m$-th order higher order influence function(HOIF) estimator for the estimable bias of double robust estimator/ double machine learning/AIPW estimator of average treatment effect (ATE) in causal inference developed by a series works of by James M. Robins and his collaborators @Robins2008_HOIF @Robins2017_Minimax, @liu2017semiparametric, @LiuLi2023_sHOIF
 $
   bb("ATE")_m ( hat(Omega)^a) & = bb("HOIF")^1_m - bb("HOIF")^0_m \
   bb("HOIF")^a_m ( hat(Omega)^a) & = sum_(j=2)^m bb("IF")^a_j ( hat(Omega)^a) \
@@ -194,3 +194,6 @@ $
 - *Output*: $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$.
 
 
+
+
+#bibliography("Master.bib")

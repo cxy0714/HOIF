@@ -345,18 +345,23 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 #'   implementation used internally for correctness checks on small datasets.
 #' @export
 hoif_ate <- function(X, A, Y, mu1, mu0, pi,
-                     transform_method = "splines",
-                     basis_dim,
+                     transform_method = "none",
+                     basis_dim = NULL,
                      inverse_method = "direct",
                      m = 7,
                      sample_split = FALSE,
                      n_folds = 2,
                      backend = "torch",
-                     seed = NULL,
+                     seed = 42,
                      pure_R_code = FALSE,
                      ...) {
 
   n <- length(Y)
+  if (is.null(basis_dim) && transform_method != "none") {
+    basis_dim <- ncol(X)
+    warning("`basis_dim` was not specified; using the number of covariates in `X` as the default basis dimension.")
+  }
+
 
   # Check for order limit in pure R mode
   if (pure_R_code) {
@@ -863,7 +868,7 @@ permn <- function(x) {
 #' be used in production or large-sample simulations.
 #'
 #' @keywords internal
-compute_HOIF_sequence_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, n_folds = 2, seed) {
+compute_HOIF_sequence_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, n_folds = 2, seed = 42) {
   HOIF_1_m <- numeric(m-1)
   HOIF_0_m <- numeric(m-1)
   IIFF_1_m <- numeric(m-1)
@@ -928,7 +933,7 @@ compute_HOIF_sequence_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splittin
 #' should not be exported or used in applied analysis.
 #'
 #' @keywords internal
-compute_HOIF_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, n_folds = 2, seed) {
+compute_HOIF_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splitting = 0, n_folds = 2, seed = 42) {
   # X: n x p covariate matrix
   # A: n-vector of binary treatment (0 or 1)
   # Y: n-vector of outcomes
