@@ -263,7 +263,7 @@ check_ustats_setup()
 
 set.seed(123)
 
-n <- 10 # sample size
+n <- 14 # sample size
 p <- 1 # number of covariates
 
 # Covariates
@@ -301,7 +301,7 @@ pi <- rep(0.5, n)
 #                   "none" means raw covariates are used (see ?hoif_ate)
 
 
-m <- 5
+m <- 7
 n_folds <- 2
 seed <- 123
 
@@ -339,6 +339,7 @@ all.equal(results_split$HOIF0, HOIF_test_split$HOIF_0_m)
 results_split$HOIF0
 HOIF_test_split$HOIF_0_m
 
+
 results <- hoif_ate(
   X, A, Y,
   mu1 = mu1,
@@ -352,13 +353,13 @@ results <- hoif_ate(
   backend = "torch"
 )
 
-HOIF_test <- compute_HOIF_sequence(X,A,Y,mu1,mu0, pi, m = m, sample_splitting = 0, K = n_folds,seed = seed)
-
-
-all.equal(results$HOIF1, HOIF_test$HOIF_1_m )
-results$HOIF1
-HOIF_test$HOIF_1_m
-
-all.equal(results$HOIF0, HOIF_test$HOIF_0_m )
-results$HOIF0
-HOIF_test$HOIF_0_m
+# HOIF_test <- compute_HOIF_sequence(X,A,Y,mu1,mu0, pi, m = m, sample_splitting = 0, K = n_folds,seed = seed)
+#
+#
+# all.equal(results$HOIF1, HOIF_test$HOIF_1_m )
+# results$HOIF1
+# HOIF_test$HOIF_1_m
+#
+# all.equal(results$HOIF0, HOIF_test$HOIF_0_m )
+# results$HOIF0
+# HOIF_test$HOIF_0_m

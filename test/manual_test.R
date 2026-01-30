@@ -334,7 +334,7 @@ residuals <- compute_residuals(A, Y, mu1, mu0, pi)
 Omega <- compute_gram_inverse(Z, A, method = inverse_method)
 
 # Step 4: Compute basis matrices
-B_matrices <- compute_basis_matrix(Z, Omega$Omega1, Omega$Omega0)
+B_matrices <- compute_basis_matrix(Z, A, Omega$Omega1, Omega$Omega0)
 
 # Step 5: Compute HOIF estimators
 results_1 <- compute_hoif_estimators(residuals, B_matrices, m, backend_1)
