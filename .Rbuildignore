@@ -1,7 +1,10 @@
 ^test$
 ^test/
+test_mannual/
 ^\.gitignore$
 ^README\.md$
 ^LICENSE\.md$
 ^\.Rproj\.user$
 ^.*\.Rproj$
+^doc$
+^Meta$
