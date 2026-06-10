@@ -1,3 +1,5 @@
 url: https://cxy0714.github.io/HOIF/
 template:
   bootstrap: 5
+  bslib:
+    font_scale: 0.875

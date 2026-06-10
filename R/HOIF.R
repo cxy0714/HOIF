@@ -404,12 +404,28 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 
 #' Main function: HOIF estimators for ATE with optional sample splitting
 #'
+#' Computes the higher-order influence function terms of orders 2 to m,
+#' which estimate the estimable bias of the standard first-order doubly
+#' robust (AIPW) estimator of the ATE and are used to debias it.
+#'
+#' @details
+#' Conceptually, HOIF estimation involves three estimation tasks, and
+#' ideally each uses its own, independent part of the data: (1) estimating
+#' the nuisance functions mu(1, X), mu(0, X) and pi(X); (2) estimating the
+#' inverse weighted Gram matrix; (3) computing the higher-order
+#' U-statistics. This package does not implement task (1): `hoif_ate()`
+#' only takes the nuisance *predictions* `mu1`, `mu0` and `pi` as inputs,
+#' so the overall three-way cross-fitting is left to the user. The
+#' `sample_split` argument controls only the split between tasks (2) and
+#' (3); see its description below.
+#'
 #' @param X Covariate matrix (n x p)
 #' @param A Treatment vector (n x 1)
 #' @param Y Outcome vector (n x 1)
-#' @param mu1 Predicted outcomes under treatment
-#' @param mu0 Predicted outcomes under control
-#' @param pi Predicted propensity scores
+#' @param mu1 Predicted outcomes under treatment (predictions supplied by
+#'   the user, ideally estimated on a separate, independent sample)
+#' @param mu0 Predicted outcomes under control (see `mu1`)
+#' @param pi Predicted propensity scores (see `mu1`)
 #' @param transform_method Character: method to transform covariates before
 #'   constructing basis functions.
 #'   - "splines": use basis splines expansion
@@ -426,10 +442,14 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 #'   - "nlshrink": nonlinear shrinkage estimator (Ledoit-Wolf type)
 #'   - "corpcor": shrinkage via the corpcor package (for high-dimensional settings)
 #' @param m Maximum order for HOIF (up to 6 when \code{pure_R_code = TRUE})
-#' @param sample_split Logical: whether to use sample splitting.
-#'   If `TRUE`, the data is split: one part for estimating the inverse
-#'   Gram matrix, and the other for estimation. If `FALSE`, it corresponds
-#'   to the sHOIF case (without sample splitting).
+#' @param sample_split Logical: whether to cross-fit the inverse weighted
+#'   Gram matrix against the U-statistics. If `TRUE` (the eHOIF case), the
+#'   sample is split into `n_folds` folds; for each fold, the Gram matrix
+#'   is estimated on the remaining folds, the U-statistics are computed on
+#'   that fold, and the results are averaged across folds. If `FALSE` (the
+#'   sHOIF case), both are computed on the same sample, without
+#'   distinction. Note this is not a cross-fitting of the nuisance
+#'   functions, whose predictions are supplied via `mu1`, `mu0`, `pi`.
 #' @param n_folds Number of folds for sample splitting (if used)
 #' @param backend Character: computation backend used by
 #'   \code{\link[ustats]{ustat}}; "torch" (default) or "numpy". Ignored

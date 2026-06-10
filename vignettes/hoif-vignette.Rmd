@@ -50,7 +50,9 @@ The computation of the higher-order U-statistics that arise in HOIF estimators i
 
 - **Flexible basis expansion**: Supports B-splines, Fourier basis, or raw covariates
 - **Multiple inversion methods**: Direct, nonlinear shrinkage, or corpcor regularization
-- **Sample splitting support**: Optional K-fold cross-fitting
+- **Sample splitting support**: Optional K-fold cross-fitting between the
+  estimation of the inverse weighted Gram matrix and the computation of the
+  U-statistics (eHOIF; see the Sample Splitting section)
 - **Dual computational backends**: Fast Python backend via the `ustats` package, or a pure R fallback
 - **Any order with the Python backend** (pure R mode supports orders up to 6)
 
@@ -139,11 +141,14 @@ Y <- A * mu1_true + (1 - A) * mu0_true + rnorm(n, 0, 0.5)
 # True ATE
 true_ate <- mean(mu1_true - mu0_true)
 cat("True ATE:", round(true_ate, 4), "\n")
+#> True ATE: 1.3124
 ```
 
 ## Estimate Nuisance Functions
 
-In practice, these would be estimated using machine learning methods on a separate sample.
+The package **only consumes the predicted values** of the nuisance functions;
+in practice they would be estimated with flexible machine learning methods on
+a **separate, independent sample** (see the Sample Splitting section below).
 
 ```{r}
 # For this example, we'll use simple linear models
@@ -182,7 +187,24 @@ results <- hoif_ate(
 
 # View results
 print(results)
+#> HOIF Estimators for Average Treatment Effect
+#> =============================================
+#>
+#> Estimates by order:
+#>   Order    ATE  HOIF1 HOIF0
+#> 1     2 0.0015 0.0016 2e-04
+#> 2     3 0.0015 0.0017 2e-04
+#> 3     4 0.0015 0.0017 2e-04
+#> 4     5 0.0015 0.0016 2e-04
+#>
+#> Final ATE estimate (highest order): 0.0015
 ```
+
+Note that the reported `ATE` values are the higher-order influence function
+terms of orders 2 to $m$: they estimate the **estimable bias** of the
+standard first-order doubly robust (AIPW/DML) estimator and are used to
+debias it. They are *not* by themselves the full ATE point estimate (compare
+with the true ATE of 1.3124 above).
 
 ## Visualize Convergence
 
@@ -263,7 +285,9 @@ results_fourier <- hoif_ate(
 
 ## Sample Splitting (Cross-Fitting)
 
-To avoid overfitting bias when using the same data for both nuisance estimation and HOIF computation:
+To cross-fit the estimation of the inverse weighted Gram matrix against the
+computation of the U-statistics — the eHOIF estimator (see the Sample
+Splitting section under Mathematical Background for what exactly is split):
 
 ```{r}
 results_cf <- hoif_ate(
@@ -350,13 +374,28 @@ documented in the PDF shipped with the package:
 
 ## Sample Splitting
 
-When using K-fold cross-fitting, for each fold $j$:
+Conceptually, HOIF estimation involves **three** separate estimation tasks,
+and ideally each would use its own, independent part of the data:
 
-1. **Training**: Use observations not in fold $j$ to compute $\hat{\Omega}^a_j$
-2. **Estimation**: Use observations in fold $j$ with $\hat{\Omega}^a_j$ to compute HOIF
-3. **Aggregation**: Average across all folds
+1. **The nuisance functions**: estimating $\hat{\mu}(1, X)$,
+   $\hat{\mu}(0, X)$ and $\hat{\pi}(X)$;
+2. **The inverse weighted Gram matrix** $\hat{\Omega}^a$;
+3. **The higher-order U-statistics** built from $\hat{\Omega}^a$.
 
-This prevents overfitting and provides valid inference properties.
+This package deliberately does **not** implement task 1: `hoif_ate()` only
+takes the *predicted values* `mu1`, `mu0`, `pi` as inputs, and how (and on
+which sample) the nuisance functions are estimated is entirely up to the
+user. Accordingly, the full three-way cross-fitting is **not** performed by
+the package; the `sample_split` argument only controls the split between
+tasks 2 and 3:
+
+- **`sample_split = TRUE` (eHOIF)**: the sample passed to `hoif_ate()` is
+  split into `n_folds` folds $(I_1, \ldots, I_K)$. For each fold $j$,
+  $\hat{\Omega}^a$ is estimated on the observations **not** in $I_j$, the
+  U-statistics are computed on the observations **in** $I_j$, and the
+  results are averaged across the folds.
+- **`sample_split = FALSE` (sHOIF)**: $\hat{\Omega}^a$ and the U-statistics
+  are computed on the same sample, without distinction.
 
 # Computational Details
 
@@ -405,20 +444,28 @@ The pure R fallback (`pure_R_code = TRUE`):
 
 ## Choosing the Order
 
-- Start with order 3-4 for initial analysis
-- Check convergence plot to see if higher orders are needed
+For orders $m \le 7$ the whole computation reduces to ordinary matrix
+algebra with complexity $O(n^3 + nk^2 + k^3 + n^2 k)$ (Chen, Zhang & Liu,
+2025), so going up to order 7 is cheap. A practical default is therefore to
+compute all orders up to $m = 7$ (the package default) and inspect the
+convergence plot. Beyond order 7 the complexity grows to at least
+$O(n^4 + nk^2 + k^3 + n^2 k)$, so expect substantially longer run times.
 
-## Choosing the Inverse Method
+## Use a GPU if Available
 
-- **"direct"**: Default; works well when $n \gg k$ (sample size much larger than basis dimension)
-- **"nlshrink"**: Use when basis dimension is large relative to sample size
-- **"corpcor"**: Alternative shrinkage method, sometimes more stable
+With `backend = "torch"` and a CUDA-enabled PyTorch (e.g. installed via
+`ustats::setup_ustats(gpu = TRUE)`), the U-statistics are computed on the
+GPU automatically — by far the most effective speedup for large $n$ or $k$.
+On a GPU the default precision is `float32`; pass `dtype = "float64"` if
+you need maximum numerical precision.
 
 ## Sample Splitting
 
-- **Always use** when nuisance functions are estimated on the same data
-- 2-5 folds typically sufficient
-- More folds = less bias but higher variance
+See the Sample Splitting section under Mathematical Background: the package
+only cross-fits the inverse weighted Gram matrix against the U-statistics
+(`sample_split = TRUE`, eHOIF). The nuisance functions are inputs —
+estimating them, ideally on a separate, independent sample, is the user's
+responsibility.
 
 # Troubleshooting
 

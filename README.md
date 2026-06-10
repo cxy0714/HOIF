@@ -122,6 +122,21 @@ results <- hoif_ate(X, A, Y, mu1 = mu1, mu0 = mu0, pi = pi,
 
 ---
 
+## A Note on Sample Splitting
+
+Conceptually, HOIF estimation involves **three** estimation tasks, and ideally each uses its own, independent part of the data:
+
+1. estimating the **nuisance functions** $\hat{\mu}(1, X), \hat{\mu}(0, X), \hat{\pi}(X)$;
+2. estimating the **inverse weighted Gram matrix** $\hat{\Omega}^a$;
+3. computing the **higher-order U-statistics**.
+
+This package does **not** implement task 1: `hoif_ate()` only takes the *predicted values* (`mu1`, `mu0`, `pi`) as inputs, so the overall three-way cross-fitting is left to the user. The `sample_split` argument controls only the split between tasks 2 and 3:
+
+- `sample_split = TRUE` (**eHOIF**): cross-fits the Gram matrix against the U-statistics over `n_folds` folds and averages the results;
+- `sample_split = FALSE` (**sHOIF**): computes both on the same sample, without distinction.
+
+---
+
 ## Example
 
 A more comprehensive example can be found in [`test_manual/manual_test.R`](test_manual/manual_test.R).
