@@ -37,7 +37,7 @@ Suggests:
     reticulate,
     knitr,
     rmarkdown
-URL: https://github.com/cxy0714/HOIF
+URL: https://cxy0714.github.io/HOIF/, https://github.com/cxy0714/HOIF
 BugReports: https://github.com/cxy0714/HOIF/issues
 SystemRequirements: For the default Python backend: Python (>= 3.11) with
     the 'u-stats', 'numpy' and 'torch' packages (provisioned automatically

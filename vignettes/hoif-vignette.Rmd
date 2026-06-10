@@ -8,7 +8,7 @@ output:
     toc_depth: 3
     number_sections: true
 vignette: >
-  %\VignetteIndexEntry{Introduction to HOIF}
+  %\VignetteIndexEntry{Introduction to HOIF: Higher-Order Influence Function Estimators for the ATE}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
