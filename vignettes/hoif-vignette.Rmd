@@ -272,7 +272,7 @@ results_ehoif <- hoif_ate(
   pi = pi_hat,
   transform_method = "none",  # Use raw covariates
   inverse_method = "direct",
-  m = 5,                      # Compute up to 5th order
+  m = 7,                      # Compute up to 7th order
   sample_split = TRUE,
   n_folds = 2,
   seed = 42,
@@ -289,8 +289,10 @@ print(results_ehoif)
 #> 2     3 -0.0162 0.0013 0.0175
 #> 3     4 -0.0156 0.0034 0.0190
 #> 4     5 -0.0155 0.0030 0.0185
+#> 5     6 -0.0157 0.0026 0.0183
+#> 6     7 -0.0156 0.0027 0.0183
 #>
-#> Final ATE estimate (highest order): -0.0155
+#> Final ATE estimate (highest order): -0.0156
 ```
 
 ## Compute the sHOIF Estimator (without sample splitting)
@@ -308,7 +310,7 @@ results_shoif <- hoif_ate(
   pi = pi_hat,
   transform_method = "none",
   inverse_method = "direct",
-  m = 5,
+  m = 7,
   sample_split = FALSE,
   backend = "torch"
 )
@@ -323,6 +325,8 @@ print(results_shoif)
 #> 2     3 -0.0187 -0.0026 0.0160
 #> 3     4 -0.0183 -0.0026 0.0157
 #> 4     5 -0.0183 -0.0026 0.0157
+#> 5     6 -0.0183 -0.0026 0.0157
+#> 6     7 -0.0183 -0.0026 0.0157
 #>
 #> Final ATE estimate (highest order): -0.0183
 ```
