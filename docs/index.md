@@ -1,0 +1,317 @@
+# HOIF
+
+## Introduction
+
+**HOIF** is an `R` package for the implementation of **Higher-Order
+Influence Function (HOIF)** estimators for the **Average Treatment
+Effect (ATE)**. The methodology is based on a series of foundational
+works by James M. Robins and his collaborators \[1–4\].
+
+The overall algorithmic workflow, mathematical formulas, and all
+parameters of `HOIF` are illustrated in [`HOIF.pdf` (on
+GitHub)](https://github.com/cxy0714/HOIF/blob/master/inst/extdoc/HOIF.pdf)
+(after installation:
+`system.file("extdoc", "HOIF.pdf", package = "HOIF")`) and in the
+[package
+vignette](https://cxy0714.github.io/HOIF/articles/hoif-vignette.html) —
+both can be used as references.
+
+------------------------------------------------------------------------
+
+## The Core Computation
+
+A core computational component of HOIF is the evaluation of
+**higher-order U-statistics**.
+
+We have developed a general algorithm for computing U-statistics using
+the powerful Python functions
+[`numpy.einsum`](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html)
+and
+[`torch.einsum`](https://pytorch.org/docs/stable/generated/torch.einsum.html).
+
+We have built a Python package,
+[`u-stats`](https://pypi.org/project/u-stats/) (source:
+[U-Statistics-python](https://github.com/zrq1706/U-Statistics-python)),
+along with an R interface provided by
+[`ustats`](https://github.com/cxy0714/U-Statistics-R). Using
+[`ustats`](https://github.com/cxy0714/U-Statistics-R), we developed this
+`R` package for HOIF estimation of the ATE.
+
+We also analyze computational complexity using graph-theoretic tools in
+a dedicated paper focused on the **exact computation** of higher-order
+U-statistics \[5\].
+
+For HOIF estimators of the ATE, a key takeaway is:
+
+- when the order $m \leq 7$, the computational complexity is
+  $O\left( n^{3} + nk^{2} + k^{3} + n^{2}k \right)$
+- when the order $m > 7$, the computational complexity exceeds
+  $O\left( n^{4} + nk^{2} + k^{3} + n^{2}k \right)$
+
+Here, $n$ is the sample size and $k$ is the user-defined dimension of
+the transformed covariates $X$. For more details on computing the
+higher-order U-statistics arising in HOIF, see Section 4.1 of \[5\].
+
+------------------------------------------------------------------------
+
+## Installation
+
+``` r
+# From CRAN (once accepted):
+# install.packages("HOIF")
+
+# Development version from GitHub (also installs the dependency ustats):
+# install.packages("devtools")
+devtools::install_github("cxy0714/HOIF")
+```
+
+### Setting up the Python backend
+
+By default, the higher-order U-statistics are computed in Python through
+the [`ustats`](https://github.com/cxy0714/U-Statistics-R) package, which
+needs **Python (\>= 3.11)** with the Python packages `u-stats`, `numpy`,
+and `torch`. There are three ways to get them — pick the one that fits
+you:
+
+#### Option 1 — Do nothing (recommended)
+
+With `reticulate` (\>= 1.41), the Python dependencies are declared by
+`ustats` and provisioned **automatically** the first time Python is
+needed. Just call
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md):
+
+``` r
+library(HOIF)
+results <- hoif_ate(...)   # first call sets up Python automatically
+```
+
+The downloaded environment is cached and reused across sessions.
+
+> **Note:** the first call downloads PyTorch. On Linux the default build
+> bundles CUDA libraries (~2.5 GB); if you prefer a small CPU-only build
+> or want full control, use Option 2 or 3.
+
+#### Option 2 — One-shot managed setup: `ustats::setup_ustats()`
+
+Creates a persistent environment and installs all dependencies. By
+default it installs the **CPU-only** build of PyTorch (~200 MB instead
+of ~2.5 GB):
+
+``` r
+ustats::setup_ustats()              # CPU-only PyTorch (default)
+ustats::setup_ustats(gpu = TRUE)    # default PyPI PyTorch (CUDA on Linux)
+```
+
+#### Option 3 — Use your own Python/conda environment
+
+If you already have an environment with a configured PyTorch (e.g. a
+specific CUDA version), just add `u-stats`:
+
+``` bash
+pip install u-stats
+```
+
+and point reticulate to that environment **before Python initializes**:
+
+``` r
+library(HOIF)
+reticulate::use_condaenv("your_env_name", required = TRUE)  # or use_virtualenv()
+# Alternatively, set the RETICULATE_PYTHON environment variable
+# (e.g. in .Rprofile or .Renviron) to the path of your python binary.
+```
+
+#### Verify the setup
+
+Whichever option you chose:
+
+``` r
+ustats::check_ustats_setup()
+#> === ustats Environment Status ===
+#> [OK] Python: /path/to/python
+#> [OK] u_stats available
+#> [OK] NumPy available
+#> [OK] PyTorch available (version 2.x, CUDA available)
+```
+
+See `vignette("ustats", package = "ustats")` for a complete installation
+guide and troubleshooting tips.
+
+### No Python at all?
+
+Pass `pure_R_code = TRUE` to
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md):
+the U-statistics are then computed by a pure R implementation (orders up
+to 6) and **no Python runtime is required**:
+
+``` r
+results <- hoif_ate(X, A, Y, mu1 = mu1, mu0 = mu0, pi = pi,
+                    m = 6, pure_R_code = TRUE)
+```
+
+------------------------------------------------------------------------
+
+## Example
+
+Before the code, a note on **sample splitting**. Conceptually, HOIF
+estimation involves **three** estimation tasks, and ideally each uses
+its own, independent part of the data:
+
+1.  estimating the **nuisance functions**
+    $\widehat{\mu}(1,X),\widehat{\mu}(0,X),\widehat{\pi}(X)$;
+2.  estimating the **inverse weighted Gram matrix**
+    ${\widehat{\Omega}}^{a}$;
+3.  computing the **higher-order U-statistics**.
+
+This package does **not** implement task 1:
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
+only takes the *predicted values* (`mu1`, `mu0`, `pi`) as inputs, so the
+overall three-way cross-fitting is left to the user. The `sample_split`
+argument controls only the split between tasks 2 and 3:
+
+- `sample_split = TRUE` (**eHOIF**): cross-fits the Gram matrix against
+  the U-statistics over `n_folds` folds and averages the results;
+- `sample_split = FALSE` (**sHOIF**): computes both on the same sample,
+  without distinction.
+
+The example below shows the recommended workflow. The data are first
+split in half: the nuisance functions are fitted on one half (task 1)
+and [`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
+is run **only** on the other half (tasks 2–3), so the nuisance
+predictions are independent of the estimation sample. Within the
+estimation half, **eHOIF** then additionally cross-fits the Gram matrix
+against the U-statistics, while **sHOIF** uses the estimation half as
+is.
+
+A more comprehensive example can be found in
+[`test_manual/manual_test.R`](https://cxy0714.github.io/HOIF/test_manual/manual_test.R).
+
+``` r
+library(HOIF)
+
+set.seed(123)
+
+n <- 2000   # Total sample size
+p <- 50     # Number of covariates
+
+# Covariates
+X <- matrix(rnorm(n * p), ncol = p)
+
+# Binary treatment assignment (randomized)
+A <- rbinom(n, 1, 0.5)
+
+# True coefficient vector (normalized)
+beta <- runif(p)
+beta <- beta / sqrt(as.numeric(crossprod(beta)))
+
+# Outcome: partially linear model
+Y <- as.numeric(A + X %*% beta + rnorm(n, 0, 0.1))
+
+
+### Step 1: Split the sample ---------------------------------------------
+### One half (the "nuisance sample") is used only to fit the nuisance
+### regressions; the other half (the "estimation sample") is used only by
+### hoif_ate(). This keeps the nuisance predictions independent of the
+### sample on which the HOIF estimator is computed.
+
+idx_nuis <- sample(n, n / 2)
+idx_est  <- setdiff(seq_len(n), idx_nuis)
+
+X_nuis <- X[idx_nuis, , drop = FALSE]
+A_nuis <- A[idx_nuis]
+Y_nuis <- Y[idx_nuis]
+
+X_est <- X[idx_est, , drop = FALSE]
+A_est <- A[idx_est]
+Y_est <- Y[idx_est]
+
+
+### Step 2: Estimate nuisance outcome regressions on the nuisance sample
+### and predict them on the estimation sample (here we omit the estimation
+### of the propensity score by using the known randomization probability)
+
+# - mu1(X) = E[Y | A = 1, X]
+# - mu0(X) = E[Y | A = 0, X]
+
+library(glmnet)
+
+cv_fit1 <- cv.glmnet(X_nuis[A_nuis == 1, , drop = FALSE],
+                     Y_nuis[A_nuis == 1], alpha = 1)
+cv_fit0 <- cv.glmnet(X_nuis[A_nuis == 0, , drop = FALSE],
+                     Y_nuis[A_nuis == 0], alpha = 1)
+
+mu1 <- as.vector(predict(cv_fit1, newx = X_est, s = "lambda.min"))
+mu0 <- as.vector(predict(cv_fit0, newx = X_est, s = "lambda.min"))
+
+# Known propensity score (randomized treatment)
+pi <- rep(0.5, length(idx_est))
+
+
+### Step 3: eHOIF -- cross-fit the Gram matrix vs the U-statistics --------
+### Within the estimation sample, hoif_ate() splits the data into n_folds
+### folds: for each fold, the inverse weighted Gram matrix is estimated on
+### the other folds, the U-statistics are computed on the held-out fold,
+### and the results are averaged.
+
+m <- 7
+n_folds <- 2
+
+results_split <- hoif_ate(
+  X_est, A_est, Y_est,
+  mu1 = mu1,
+  mu0 = mu0,
+  pi = pi,
+  transform_method = "none",
+  m = m,
+  sample_split = TRUE,
+  n_folds = n_folds,
+  seed = 123,
+  backend = "torch"
+)
+
+cat("\nResults (eHOIF, with sample splitting):\n")
+print(results_split)
+plot(results_split)
+
+
+### Step 4: sHOIF -- Gram matrix and U-statistics on the same sample ------
+### Still uses the independent nuisance predictions from Step 2; only the
+### split between the Gram matrix and the U-statistics is dropped.
+
+results_no_split <- hoif_ate(
+  X_est, A_est, Y_est,
+  mu1 = mu1,
+  mu0 = mu0,
+  pi = pi,
+  transform_method = "none",
+  m = m,
+  sample_split = FALSE,
+  backend = "torch"
+)
+
+cat("\nResults (sHOIF, without sample splitting):\n")
+print(results_no_split)
+plot(results_no_split)
+```
+
+------------------------------------------------------------------------
+
+## References
+
+¹ Robins, J., Li, L., Tchetgen Tchetgen, E., & van der Vaart, A. (2008).
+Higher order influence functions and minimax estimation of nonlinear
+functionals. In Probability and Statistics: Essays in Honor of David A.
+Freedman, 335–421.
+
+² Robins, J. M., Li, L., Mukherjee, R., Tchetgen Tchetgen, E., & van der
+Vaart, A. (2017). Minimax estimation of a functional on a structured
+high-dimensional model. The Annals of Statistics, 45(5), 1951–1987.
+
+³ Liu, L., Mukherjee, R., Newey, W. K., & Robins, J. M. (2017).
+Semiparametric efficient empirical higher order influence function
+estimators. arXiv:1705.07577.
+
+⁴ Liu, L., & Li, C. (2023). New √n-consistent, numerically stable
+higher-order influence function estimators. arXiv:2302.08097.
+
+⁵ Chen, X., Zhang, R., & Liu, L. (2025). On computing and the complexity
+of computing higher-order U-statistics, exactly. arXiv:2508.12627.
