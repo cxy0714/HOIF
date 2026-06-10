@@ -12,23 +12,40 @@
 #'
 #' @param X Matrix of covariates (n x p)
 #' @param method Character: "splines", "fourier", or "none"
-#' @param basis_dim Integer: dimension of basis expansion (ignored if method = "none")
+#' @param basis_dim Integer: dimension of basis expansion per covariate
+#'   (ignored if method = "none"; must be at least degree + 1 for "splines"
+#'   and at least 2 for "fourier")
 #' @param degree Integer: degree for B-splines (default 3; ignored if method != "splines")
 #' @param period Numeric: period for Fourier basis (default 1; ignored if method != "fourier")
 #'
-#' @return Matrix Z (n x (k * p + 1) or n x (p + 1)) of transformed covariates with intercept
+#' @return Matrix of transformed covariates. For method = "none" the input
+#'   X is returned unchanged (n x p); for "splines" and "fourier" the basis
+#'   expansions of all covariates are column-bound together with an
+#'   intercept column.
+#'
+#' @examples
+#' X <- matrix(rnorm(40), nrow = 20, ncol = 2)
+#' Z_splines <- transform_covariates(X, method = "splines", basis_dim = 5)
+#' Z_fourier <- transform_covariates(X, method = "fourier", basis_dim = 4)
+#' Z_raw <- transform_covariates(X, method = "none")
+#' dim(Z_splines)
+#' dim(Z_fourier)
+#'
 #' @export
 transform_covariates <- function(X, method = "splines", basis_dim, degree = 3, period = 1) {
   if (is.vector(X)) X <- matrix(X, ncol = 1)
   n <- nrow(X)
   p <- ncol(X)
 
-
-
   if (method == "none") {
-    # Return [intercept | X] as-is
+    # Return the raw covariates unchanged
     return(X)
   }
+
+  if (missing(basis_dim) || is.null(basis_dim)) {
+    stop("`basis_dim` must be specified when method is 'splines' or 'fourier'")
+  }
+  basis_dim <- as.integer(basis_dim)
 
   # Initialize with intercept
   Z_intercept <- matrix(1, nrow = n, ncol = 1)
@@ -38,9 +55,12 @@ transform_covariates <- function(X, method = "splines", basis_dim, degree = 3, p
   })
 
   if (method == "splines") {
+    if (basis_dim < degree + 1) {
+      stop("`basis_dim` must be at least degree + 1 for method = 'splines'")
+    }
     Z_basis <- matrix(nrow = n, ncol = 0)
     for (j in 1:p) {
-      knots <- seq(0, 1, length.out = k - degree + 1)
+      knots <- seq(0, 1, length.out = basis_dim - degree + 1)
       basis_j <- splines::bs(
         X_scaled[, j],
         knots = knots[-c(1, length(knots))],
@@ -52,9 +72,12 @@ transform_covariates <- function(X, method = "splines", basis_dim, degree = 3, p
     return(cbind(Z_intercept, Z_basis))
 
   } else if (method == "fourier") {
+    if (basis_dim < 2) {
+      stop("`basis_dim` must be at least 2 for method = 'fourier'")
+    }
     Z_basis <- matrix(nrow = n, ncol = 0)
     for (j in 1:p) {
-      freq <- 1:floor(k / 2)
+      freq <- 1:floor(basis_dim / 2)
       for (f in freq) {
         Z_basis <- cbind(
           Z_basis,
@@ -62,9 +85,9 @@ transform_covariates <- function(X, method = "splines", basis_dim, degree = 3, p
           sin(2 * pi * f * X_scaled[, j] / period)
         )
       }
-      # Handle odd k: add one extra cosine if k is odd
-      if (k %% 2 == 1) {
-        f_extra <- (k + 1) / 2
+      # Handle odd basis_dim: add one extra cosine
+      if (basis_dim %% 2 == 1) {
+        f_extra <- (basis_dim + 1) / 2
         Z_basis <- cbind(Z_basis, cos(2 * pi * f_extra * X_scaled[, j] / period))
       }
     }
@@ -84,6 +107,15 @@ transform_covariates <- function(X, method = "splines", basis_dim, degree = 3, p
 #' @param pi Propensity scores
 #'
 #' @return List with R1, r1, R0, r0
+#'
+#' @examples
+#' n <- 100
+#' A <- rbinom(n, 1, 0.5)
+#' Y <- rnorm(n)
+#' res <- compute_residuals(A, Y, mu1 = rep(0.5, n), mu0 = rep(-0.5, n),
+#'                          pi = rep(0.5, n))
+#' str(res)
+#'
 #' @export
 compute_residuals <- function(A, Y, mu1, mu0, pi) {
   # For a = 1
@@ -102,9 +134,20 @@ compute_residuals <- function(A, Y, mu1, mu0, pi) {
 #'
 #' @param Z Basis matrix (n x k)
 #' @param A Treatment vector
-#' @param method Character: "direct", "nlshrink", or "corpcor"
+#' @param method Character: "direct" (Cholesky-based inversion, falling back
+#'   to the Moore-Penrose inverse from \pkg{MASS} if the Gram matrix is not
+#'   positive definite), "nlshrink" (nonlinear shrinkage), or "corpcor"
+#'   (pseudoinverse via \pkg{corpcor})
 #'
 #' @return List with Omega1 and Omega0 (inverse Gram matrices)
+#'
+#' @examples
+#' n <- 100
+#' Z <- cbind(1, matrix(rnorm(n * 2), n, 2))
+#' A <- rbinom(n, 1, 0.5)
+#' Omega <- compute_gram_inverse(Z, A)
+#' str(Omega)
+#'
 #' @export
 compute_gram_inverse <- function(Z, A, method = "direct") {
   n <- nrow(Z)
@@ -129,18 +172,26 @@ compute_gram_inverse <- function(Z, A, method = "direct") {
 
   # Compute inverses
   if (method == "direct") {
+    ginv_fallback <- function(G, label) {
+      if (!requireNamespace("MASS", quietly = TRUE)) {
+        stop(label, " is not positive definite and package 'MASS' is not ",
+             "installed. Install 'MASS' or use method = 'corpcor'.",
+             call. = FALSE)
+      }
+      warning(label, " not positive definite, using Moore-Penrose inverse")
+      MASS::ginv(G)
+    }
+
     Omega1 <- tryCatch({
       chol2inv(chol(G1))
     }, error = function(e) {
-      warning("G1 not positive definite, using Moore-Penrose inverse")
-      MASS::ginv(G1)
+      ginv_fallback(G1, "G1")
     })
 
     Omega0 <- tryCatch({
       chol2inv(chol(G0))
     }, error = function(e) {
-      warning("G0 not positive definite, using Moore-Penrose inverse")
-      MASS::ginv(G0)
+      ginv_fallback(G0, "G0")
     })
   } else if (method == "nlshrink") {
     if (!requireNamespace("corpcor", quietly = TRUE)) {
@@ -165,11 +216,20 @@ compute_gram_inverse <- function(Z, A, method = "direct") {
 #' Compute basis projection matrices
 #'
 #' @param Z Basis matrix (n x k)
-#' @param A treament weight (n x 1)
+#' @param A Treatment vector (n x 1)
 #' @param Omega1 Inverse Gram matrix for treatment group
 #' @param Omega0 Inverse Gram matrix for control group
 #'
 #' @return List with B1 and B0 (projection matrices)
+#'
+#' @examples
+#' n <- 100
+#' Z <- cbind(1, matrix(rnorm(n * 2), n, 2))
+#' A <- rbinom(n, 1, 0.5)
+#' Omega <- compute_gram_inverse(Z, A)
+#' B <- compute_basis_matrix(Z, A, Omega$Omega1, Omega$Omega0)
+#' dim(B$B1)
+#'
 #' @export
 compute_basis_matrix <- function(Z, A, Omega1, Omega0) {
   Z_weighted1 <- Z * A
@@ -192,6 +252,10 @@ compute_basis_matrix <- function(Z, A, Omega1, Omega0) {
 #'   - First element: scalar 1
 #'   - Middle elements: vectors [1,2], [2,3], ..., [j-1,j]
 #'   - Last element: scalar j
+#'
+#' @examples
+#' build_Ej(3)
+#'
 #' @export
 build_Ej <- function(j) {
   if (j < 2) stop("j must be >= 2")
@@ -217,18 +281,48 @@ build_Ej <- function(j) {
 #' @param residuals A list containing the computed residuals: `R1`, `r1`, `R0`, and `r0`.
 #' @param B_matrices A list containing the projection-like basis matrices: `B1` and `B0`.
 #' @param m Integer. The maximum order of the HOIF estimator.
-#' @param backend Character. The computation backend for the `ustat` package;
-#'        either "torch" (default) or "numpy".
+#' @param backend Character. The computation backend used by
+#'        \code{\link[ustats]{ustat}}; either "torch" (default) or "numpy".
+#'        If PyTorch is not available, 'ustats' falls back to "numpy" with
+#'        a warning.
 #' @param pure_R_code Logical. Whether to use a native R implementation.
-#'        This serves as a fallback when the `reticulate` environment (Python)
-#'        encounters configuration issues. Note: The pure R implementation
-#'        only supports up to the 6th order ($m = 6$).
+#'        This serves as a fallback when the Python environment used by
+#'        'ustats' (via 'reticulate') is not available. Note: The pure R
+#'        implementation only supports up to the 6th order (m = 6).
+#' @param dtype Optional character string passed to
+#'        \code{\link[ustats]{ustat}} controlling the numeric precision of
+#'        the Python backend: "float32" or "float64". The default
+#'        \code{NULL} selects the precision automatically (float32 on a
+#'        CUDA GPU, float64 otherwise). Ignored when \code{pure_R_code = TRUE}.
 #'
-#' @return A list of HOIF estimators (ATE, HOIF, IIFF) for orders $l = 2, \dots, m$.
+#' @return A list of HOIF estimators (ATE, HOIF, IIFF) for orders l = 2, ..., m.
+#'
+#' @examples
+#' # Pure R example (no Python required), up to order 6
+#' n <- 100
+#' Z <- cbind(1, rnorm(n))
+#' A <- rbinom(n, 1, 0.5)
+#' Y <- A + Z[, 2] + rnorm(n)
+#' residuals <- compute_residuals(A, Y, mu1 = 1 + Z[, 2], mu0 = Z[, 2],
+#'                                pi = rep(0.5, n))
+#' Omega <- compute_gram_inverse(Z, A)
+#' B <- compute_basis_matrix(Z, A, Omega$Omega1, Omega$Omega0)
+#' est <- compute_hoif_estimators(residuals, B, m = 6, pure_R_code = TRUE)
+#' est$ATE
+#'
+#' \dontrun{
+#' # Python backend (requires the 'ustats' Python dependencies), any order
+#' est <- compute_hoif_estimators(residuals, B, m = 7, backend = "torch")
+#' }
 #'
 #' @importFrom ustats ustat
 #' @export
-compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "torch", pure_R_code = FALSE) {
+compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "torch",
+                                    pure_R_code = FALSE, dtype = NULL) {
+
+  if (pure_R_code && m > 6) {
+    stop("When 'pure_R_code' is TRUE, the maximum order supported is 6.")
+  }
 
   # Initialize storage
   U1 <- numeric(m)
@@ -262,9 +356,9 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 
       # Compute U-statistics using ustat function
       U1[j] <- (-1)^j * ustats::ustat(tensors = T_j_1, expression = E_j,
-                              backend = backend, average = TRUE)
+                              backend = backend, average = TRUE, dtype = dtype)
       U0[j] <- (-1)^j * ustats::ustat(tensors = T_j_0, expression = E_j,
-                              backend = backend, average = TRUE)
+                              backend = backend, average = TRUE, dtype = dtype)
     }
   } else {
     # Compute U-statistics using pure R fallback (up to 6th order)
@@ -327,22 +421,68 @@ compute_hoif_estimators <- function(residuals, B_matrices, m = 7, backend = "tor
 #'   approximations but may increase variance.
 #'
 #' @param inverse_method Character: regularization method for Gram matrix inversion.
-#'   - "direct": direct Moore-Penrose pseudoinverse (no regularization)
+#'   - "direct": Cholesky-based inversion (falls back to the Moore-Penrose
+#'     inverse from \pkg{MASS} when the Gram matrix is not positive definite)
 #'   - "nlshrink": nonlinear shrinkage estimator (Ledoit-Wolf type)
 #'   - "corpcor": shrinkage via the corpcor package (for high-dimensional settings)
-#' @param m Maximum order for HOIF
+#' @param m Maximum order for HOIF (up to 6 when \code{pure_R_code = TRUE})
 #' @param sample_split Logical: whether to use sample splitting.
 #'   If `TRUE`, the data is split: one part for estimating the inverse
 #'   Gram matrix, and the other for estimation. If `FALSE`, it corresponds
 #'   to the sHOIF case (without sample splitting).
 #' @param n_folds Number of folds for sample splitting (if used)
-#' @param backend Character: "torch" (default) or "numpy"
+#' @param backend Character: computation backend used by
+#'   \code{\link[ustats]{ustat}}; "torch" (default) or "numpy". Ignored
+#'   when \code{pure_R_code = TRUE}.
 #' @param seed Random seed for reproducibility (for sample splitting)
+#' @param pure_R_code Logical: if `TRUE`, the higher-order U-statistics are
+#'   computed with a pure R implementation (no Python required), which
+#'   supports orders up to m = 6. If `FALSE` (default), they are computed
+#'   by the 'ustats' package, whose Python dependencies are provisioned
+#'   automatically on first use (see the package README).
+#' @param dtype Optional character string ("float32" or "float64")
+#'   controlling the numeric precision of the Python backend; `NULL`
+#'   (default) selects the precision automatically. Passed to
+#'   \code{\link[ustats]{ustat}}; ignored when \code{pure_R_code = TRUE}.
 #' @param ... Additional arguments passed to transform_covariates
 #'
-#' @return List with ATE, HOIF, and IIFF estimates
-#' @seealso \code{\link{compute_HOIF_test}}, which provides a brute-force
-#'   implementation used internally for correctness checks on small datasets.
+#' @return An object of class \code{"hoif_ate"}: a list with components
+#'   \item{ATE}{ATE estimates for orders 2 to m}
+#'   \item{HOIF1, HOIF0}{HOIF estimates for the treated/control arm}
+#'   \item{IIFF1, IIFF0}{Incremental influence function terms for the
+#'     treated/control arm}
+#'   \item{orders}{The orders 2 to m}
+#'   \item{convergence_data}{Data frame with the ATE estimate per order}
+#'
+#' @examples
+#' # A small, self-contained example using the pure R backend
+#' set.seed(1)
+#' n <- 100
+#' X <- matrix(rnorm(n), ncol = 1)
+#' A <- rbinom(n, 1, 0.5)
+#' Y <- as.numeric(A + X %*% 0.5 + rnorm(n, 0, 0.1))
+#' mu1 <- as.numeric(1 + X %*% 0.5)
+#' mu0 <- as.numeric(X %*% 0.5)
+#' pi <- rep(0.5, n)
+#'
+#' fit <- hoif_ate(X, A, Y, mu1 = mu1, mu0 = mu0, pi = pi,
+#'                 transform_method = "none", m = 6,
+#'                 pure_R_code = TRUE)
+#' print(fit)
+#'
+#' \dontrun{
+#' # Python backend (provisioned automatically on first use), order m = 7,
+#' # with 2-fold sample splitting
+#' fit <- hoif_ate(X, A, Y, mu1 = mu1, mu0 = mu0, pi = pi,
+#'                 transform_method = "none", m = 7,
+#'                 sample_split = TRUE, n_folds = 2, seed = 123,
+#'                 backend = "torch")
+#' print(fit)
+#' plot(fit)
+#' }
+#'
+#' @seealso \code{\link{compute_hoif_estimators}} for the lower-level
+#'   estimation routine.
 #' @export
 hoif_ate <- function(X, A, Y, mu1, mu0, pi,
                      transform_method = "none",
@@ -354,6 +494,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
                      backend = "torch",
                      seed = 42,
                      pure_R_code = FALSE,
+                     dtype = NULL,
                      ...) {
 
   n <- length(Y)
@@ -369,7 +510,9 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
       m <- 6
       warning("Using default order m = 6 for pure R mode. The maximum order supported in pure R is 6.")
     } else if (m > 6) {
-      stop("When 'pure_R_code' is TRUE, the maximum order supported is 6. If you want order > 6, please set 'pure_R_code' be FALSE then use powerful python. ")
+      stop("When 'pure_R_code' is TRUE, the maximum order supported is 6. ",
+           "For orders > 6, set 'pure_R_code = FALSE' to use the Python ",
+           "backend provided by the 'ustats' package.")
     } else if (m < 6) {
       warning("You requested order ", m, " with 'pure_R_code' = TRUE. ",
               "The pure R implementation computes all orders up to 6 at once. ",
@@ -395,7 +538,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
     B_matrices <- compute_basis_matrix(Z, A, Omega$Omega1, Omega$Omega0)
 
     # Step 5: Compute HOIF estimators
-    results <- compute_hoif_estimators(residuals, B_matrices, m, backend, pure_R_code)
+    results <- compute_hoif_estimators(residuals, B_matrices, m, backend, pure_R_code, dtype)
 
   } else {
     # Sample splitting (cross-fitting)
@@ -438,7 +581,7 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
         r0 = residuals$r0[I_j]
       )
 
-      results_j <- compute_hoif_estimators(residuals_j, B_matrices_j, m, backend, pure_R_code)
+      results_j <- compute_hoif_estimators(residuals_j, B_matrices_j, m, backend, pure_R_code, dtype)
 
       # Store results
       ATE_folds[j, ] <- results_j$ATE
@@ -475,6 +618,10 @@ hoif_ate <- function(X, A, Y, mu1, mu0, pi,
 #' @param x Object of class hoif_ate
 #' @param ... Additional arguments (unused)
 #'
+#' @return The input object \code{x}, invisibly. Called for its side
+#'   effect of printing a summary of the estimates to the console.
+#'
+#' @importFrom utils tail
 #' @export
 print.hoif_ate <- function(x, ...) {
   cat("HOIF Estimators for Average Treatment Effect\n")
@@ -489,6 +636,7 @@ print.hoif_ate <- function(x, ...) {
   ))
 
   cat("\nFinal ATE estimate (highest order):", round(tail(x$ATE, 1), 4), "\n")
+  invisible(x)
 }
 
 
@@ -497,6 +645,11 @@ print.hoif_ate <- function(x, ...) {
 #' @param x Object of class hoif_ate
 #' @param ... Additional arguments passed to plot
 #'
+#' @return No return value, called for its side effect of drawing a
+#'   convergence plot of the ATE estimates against the order.
+#'
+#' @importFrom graphics abline grid
+#' @importFrom utils tail
 #' @export
 plot.hoif_ate <- function(x, ...) {
   plot(x$orders, x$ATE, type = "b", pch = 19,
@@ -505,6 +658,7 @@ plot.hoif_ate <- function(x, ...) {
        ...)
   abline(h = tail(x$ATE, 1), lty = 2, col = "red")
   grid()
+  invisible(NULL)
 }
 
 
@@ -771,7 +925,7 @@ calculate_u_Ker_5 <- function(A1, A2, A3, A4) {
 #' influence function (HOIF) calculations. It generates all ordered
 #' \eqn{m}-permutations of a given index set.
 #'
-#' ⚠️ **Warning:** This function has factorial computational complexity and
+#' **Warning:** This function has factorial computational complexity and
 #' should only be used for very small sample sizes as part of debugging or
 #' verification routines.
 #'
@@ -780,6 +934,7 @@ calculate_u_Ker_5 <- function(A1, A2, A3, A4) {
 #'
 #' @return A matrix where each row is an ordered \eqn{m}-tuple of distinct indices.
 #'
+#' @importFrom utils combn
 #' @keywords internal
 generate_permutations <- function(indices, m) {
 
@@ -817,7 +972,7 @@ generate_permutations <- function(indices, m) {
 #' Internal recursive helper used by \code{generate_permutations()} to enumerate
 #' all permutations of a vector.
 #'
-#' ⚠️ Extremely computationally expensive for vectors longer than ~8 elements.
+#' **Warning:** Extremely computationally expensive for vectors longer than ~8 elements.
 #' Only intended for internal brute-force validation code.
 #'
 #' @param x A vector.
@@ -845,10 +1000,10 @@ permn <- function(x) {
 #' This function is **only intended for double-checking correctness** of the
 #' main fast implementation.
 #'
-#' ⚠️ The computation scales combinatorially with both sample size and order
+#' **Warning:** The computation scales combinatorially with both sample size and order
 #' and becomes infeasible beyond very small datasets.
 #'
-#' @param X Covariate matrix (n × p).
+#' @param X Covariate matrix (n x p).
 #' @param A Binary treatment vector of length n.
 #' @param Y Outcome vector of length n.
 #' @param mu1 Estimated outcome regression under treatment.
@@ -900,14 +1055,14 @@ compute_HOIF_sequence_test <- function(X, A, Y, mu1, mu0, pi, m, sample_splittin
 #' Computes the order-\code{m} higher-order influence function (HOIF) term
 #' using an explicit enumeration of all ordered index tuples.
 #'
-#' 🚨 **This implementation is intentionally naive and is provided solely
+#' **This implementation is intentionally naive and is provided solely
 #' for validation and debugging purposes.** It should only be used on very
 #' small datasets to verify the correctness of optimized implementations.
 #'
 #' The computational complexity grows factorially with both sample size and
 #' order \code{m}.
 #'
-#' @param X Covariate matrix (n × p).
+#' @param X Covariate matrix (n x p).
 #' @param A Binary treatment indicator vector.
 #' @param Y Outcome vector.
 #' @param mu1 Estimated outcome regression under treatment.

@@ -11,15 +11,16 @@ hoif_ate(
   mu1,
   mu0,
   pi,
-  transform_method = "splines",
-  basis_dim,
+  transform_method = "none",
+  basis_dim = NULL,
   inverse_method = "direct",
   m = 7,
   sample_split = FALSE,
   n_folds = 2,
   backend = "torch",
-  seed = NULL,
+  seed = 42,
   pure_R_code = FALSE,
+  dtype = NULL,
   ...
 )
 }
@@ -47,11 +48,12 @@ constructing basis functions.
 approximations but may increase variance.}
 
 \item{inverse_method}{Character: regularization method for Gram matrix inversion.
-- "direct": direct Moore-Penrose pseudoinverse (no regularization)
+- "direct": Cholesky-based inversion (falls back to the Moore-Penrose
+  inverse from \pkg{MASS} when the Gram matrix is not positive definite)
 - "nlshrink": nonlinear shrinkage estimator (Ledoit-Wolf type)
 - "corpcor": shrinkage via the corpcor package (for high-dimensional settings)}
 
-\item{m}{Maximum order for HOIF}
+\item{m}{Maximum order for HOIF (up to 6 when \code{pure_R_code = TRUE})}
 
 \item{sample_split}{Logical: whether to use sample splitting.
 If `TRUE`, the data is split: one part for estimating the inverse
@@ -60,19 +62,66 @@ to the sHOIF case (without sample splitting).}
 
 \item{n_folds}{Number of folds for sample splitting (if used)}
 
-\item{backend}{Character: "torch" (default) or "numpy"}
+\item{backend}{Character: computation backend used by
+\code{\link[ustats]{ustat}}; "torch" (default) or "numpy". Ignored
+when \code{pure_R_code = TRUE}.}
 
 \item{seed}{Random seed for reproducibility (for sample splitting)}
+
+\item{pure_R_code}{Logical: if `TRUE`, the higher-order U-statistics are
+computed with a pure R implementation (no Python required), which
+supports orders up to m = 6. If `FALSE` (default), they are computed
+by the 'ustats' package, whose Python dependencies are provisioned
+automatically on first use (see the package README).}
+
+\item{dtype}{Optional character string ("float32" or "float64")
+controlling the numeric precision of the Python backend; `NULL`
+(default) selects the precision automatically. Passed to
+\code{\link[ustats]{ustat}}; ignored when \code{pure_R_code = TRUE}.}
 
 \item{...}{Additional arguments passed to transform_covariates}
 }
 \value{
-List with ATE, HOIF, and IIFF estimates
+An object of class \code{"hoif_ate"}: a list with components
+  \item{ATE}{ATE estimates for orders 2 to m}
+  \item{HOIF1, HOIF0}{HOIF estimates for the treated/control arm}
+  \item{IIFF1, IIFF0}{Incremental influence function terms for the
+    treated/control arm}
+  \item{orders}{The orders 2 to m}
+  \item{convergence_data}{Data frame with the ATE estimate per order}
 }
 \description{
 Main function: HOIF estimators for ATE with optional sample splitting
 }
+\examples{
+# A small, self-contained example using the pure R backend
+set.seed(1)
+n <- 100
+X <- matrix(rnorm(n), ncol = 1)
+A <- rbinom(n, 1, 0.5)
+Y <- as.numeric(A + X \%*\% 0.5 + rnorm(n, 0, 0.1))
+mu1 <- as.numeric(1 + X \%*\% 0.5)
+mu0 <- as.numeric(X \%*\% 0.5)
+pi <- rep(0.5, n)
+
+fit <- hoif_ate(X, A, Y, mu1 = mu1, mu0 = mu0, pi = pi,
+                transform_method = "none", m = 6,
+                pure_R_code = TRUE)
+print(fit)
+
+\dontrun{
+# Python backend (provisioned automatically on first use), order m = 7,
+# with 2-fold sample splitting
+fit <- hoif_ate(X, A, Y, mu1 = mu1, mu0 = mu0, pi = pi,
+                transform_method = "none", m = 7,
+                sample_split = TRUE, n_folds = 2, seed = 123,
+                backend = "torch")
+print(fit)
+plot(fit)
+}
+
+}
 \seealso{
-\code{\link{compute_HOIF_test}}, which provides a brute-force
-  implementation used internally for correctness checks on small datasets.
+\code{\link{compute_hoif_estimators}} for the lower-level
+  estimation routine.
 }

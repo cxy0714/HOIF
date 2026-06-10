@@ -14,11 +14,11 @@ compute_HOIF_sequence_test(
   m,
   sample_splitting = 0,
   n_folds = 2,
-  seed
+  seed = 42
 )
 }
 \arguments{
-\item{X}{Covariate matrix (n × p).}
+\item{X}{Covariate matrix (n x p).}
 
 \item{A}{Binary treatment vector of length n.}
 
@@ -49,7 +49,7 @@ This function is **only intended for double-checking correctness** of the
 main fast implementation.
 }
 \details{
-⚠️ The computation scales combinatorially with both sample size and order
+**Warning:** The computation scales combinatorially with both sample size and order
 and becomes infeasible beyond very small datasets.
 
 

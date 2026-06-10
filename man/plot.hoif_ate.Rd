@@ -11,6 +11,10 @@
 
 \item{...}{Additional arguments passed to plot}
 }
+\value{
+No return value, called for its side effect of drawing a
+  convergence plot of the ATE estimates against the order.
+}
 \description{
 Plot convergence of ATE estimates
 }

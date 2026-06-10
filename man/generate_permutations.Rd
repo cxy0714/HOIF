@@ -20,7 +20,7 @@ influence function (HOIF) calculations. It generates all ordered
 \eqn{m}-permutations of a given index set.
 }
 \details{
-⚠️ **Warning:** This function has factorial computational complexity and
+**Warning:** This function has factorial computational complexity and
 should only be used for very small sample sizes as part of debugging or
 verification routines.
 }

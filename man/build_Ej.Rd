@@ -19,3 +19,7 @@ A nested list with j+1 elements representing the tensor structure:
 Constructs a nested list representing the tensor structure [1, [1,2], ..., [j-1,j], j]
 used in Higher-Order Influence Function (HOIF) calculations.
 }
+\examples{
+build_Ej(3)
+
+}
