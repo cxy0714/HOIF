@@ -4,7 +4,7 @@
 
 **HOIF** is an `R` package for the implementation of **Higher-Order Influence Function (HOIF)** estimators for the **Average Treatment Effect (ATE)**. The methodology is based on a series of foundational works by James M. Robins and his collaborators [1–4].
 
-The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`inst/extdoc/HOIF.pdf`](inst/extdoc/HOIF.pdf) (after installation: `system.file("extdoc", "HOIF.pdf", package = "HOIF")`) and in the [package vignette](https://cxy0714.github.io/HOIF/articles/hoif-vignette.html) — both can be used as references.
+The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`HOIF.pdf` (on GitHub)](https://github.com/cxy0714/HOIF/blob/master/inst/extdoc/HOIF.pdf) (after installation: `system.file("extdoc", "HOIF.pdf", package = "HOIF")`) and in the [package vignette](https://cxy0714.github.io/HOIF/articles/hoif-vignette.html) — both can be used as references.
 
 ---
 
