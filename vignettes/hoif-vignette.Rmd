@@ -444,11 +444,11 @@ The pure R fallback (`pure_R_code = TRUE`):
 
 ## Choosing the Order
 
-For orders $m \le 7$ the whole computation reduces to ordinary matrix
-algebra with complexity $O(n^3 + nk^2 + k^3 + n^2 k)$ (Chen, Zhang & Liu,
-2025), so going up to order 7 is cheap. A practical default is therefore to
-compute all orders up to $m = 7$ (the package default) and inspect the
-convergence plot. Beyond order 7 the complexity grows to at least
+For orders $m \le 7$ the computational complexity does not exceed that of
+ordinary matrix computations, $O(n^3 + nk^2 + k^3 + n^2 k)$ (Chen, Zhang &
+Liu, 2025), so going up to order 7 is cheap. A practical default is
+therefore to compute all orders up to $m = 7$ (the package default) and
+inspect the convergence plot. Beyond order 7 the complexity exceeds
 $O(n^4 + nk^2 + k^3 + n^2 k)$, so expect substantially longer run times.
 
 ## Use a GPU if Available
