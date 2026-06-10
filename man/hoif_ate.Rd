@@ -31,11 +31,12 @@ hoif_ate(
 
 \item{Y}{Outcome vector (n x 1)}
 
-\item{mu1}{Predicted outcomes under treatment}
+\item{mu1}{Predicted outcomes under treatment (predictions supplied by
+the user, ideally estimated on a separate, independent sample)}
 
-\item{mu0}{Predicted outcomes under control}
+\item{mu0}{Predicted outcomes under control (see `mu1`)}
 
-\item{pi}{Predicted propensity scores}
+\item{pi}{Predicted propensity scores (see `mu1`)}
 
 \item{transform_method}{Character: method to transform covariates before
 constructing basis functions.
@@ -55,10 +56,14 @@ approximations but may increase variance.}
 
 \item{m}{Maximum order for HOIF (up to 6 when \code{pure_R_code = TRUE})}
 
-\item{sample_split}{Logical: whether to use sample splitting.
-If `TRUE`, the data is split: one part for estimating the inverse
-Gram matrix, and the other for estimation. If `FALSE`, it corresponds
-to the sHOIF case (without sample splitting).}
+\item{sample_split}{Logical: whether to cross-fit the inverse weighted
+Gram matrix against the U-statistics. If `TRUE` (the eHOIF case), the
+sample is split into `n_folds` folds; for each fold, the Gram matrix
+is estimated on the remaining folds, the U-statistics are computed on
+that fold, and the results are averaged across folds. If `FALSE` (the
+sHOIF case), both are computed on the same sample, without
+distinction. Note this is not a cross-fitting of the nuisance
+functions, whose predictions are supplied via `mu1`, `mu0`, `pi`.}
 
 \item{n_folds}{Number of folds for sample splitting (if used)}
 
@@ -91,7 +96,20 @@ An object of class \code{"hoif_ate"}: a list with components
   \item{convergence_data}{Data frame with the ATE estimate per order}
 }
 \description{
-Main function: HOIF estimators for ATE with optional sample splitting
+Computes the higher-order influence function terms of orders 2 to m,
+which estimate the estimable bias of the standard first-order doubly
+robust (AIPW) estimator of the ATE and are used to debias it.
+}
+\details{
+Conceptually, HOIF estimation involves three estimation tasks, and
+ideally each uses its own, independent part of the data: (1) estimating
+the nuisance functions mu(1, X), mu(0, X) and pi(X); (2) estimating the
+inverse weighted Gram matrix; (3) computing the higher-order
+U-statistics. This package does not implement task (1): `hoif_ate()`
+only takes the nuisance *predictions* `mu1`, `mu0` and `pi` as inputs,
+so the overall three-way cross-fitting is left to the user. The
+`sample_split` argument controls only the split between tasks (2) and
+(3); see its description below.
 }
 \examples{
 # A small, self-contained example using the pure R backend

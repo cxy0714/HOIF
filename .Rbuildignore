@@ -8,6 +8,8 @@
 ^.*\.Rproj$
 ^\.github$
 ^docs$
+^_pkgdown\.yml$
+^pkgdown$
 ^inst/typst$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
