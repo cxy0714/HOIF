@@ -1,0 +1,630 @@
+# Introduction to HOIF: Higher-Order Influence Function Estimators for the ATE
+
+## Introduction
+
+The **HOIF** package implements Higher-Order Influence Function (HOIF)
+estimators for Average Treatment Effect (ATE) estimation in causal
+inference. This methodology extends the doubly robust (DR)
+estimator—also known as the Augmented Inverse Propensity Weighted (AIPW)
+or Double Machine Learning (DML) estimator—by systematically accounting
+for higher-order bias terms.
+
+### Background
+
+The HOIF methodology was developed through a series of seminal works by
+James M. Robins and collaborators:
+
+- Robins et al. (2008): *Higher order influence functions and minimax
+  estimation of nonlinear functionals*
+- Robins et al. (2017): *Minimax estimation of a functional on a
+  structured high-dimensional model*
+- Liu et al. (2017): *Semiparametric efficient empirical higher order
+  influence function estimators*
+- Liu & Li (2023): *New √n-consistent, numerically stable higher-order
+  influence function estimators*
+
+The key idea is to represent the bias of the standard DR estimator as a
+sum of higher-order influence functions, which can be estimated and used
+to debias the original estimator.
+
+The computation of the higher-order U-statistics that arise in HOIF
+estimators is delegated to the
+[`ustats`](https://github.com/cxy0714/U-Statistics-R) package; the
+algorithm and its computational complexity are analyzed in:
+
+- Chen, Zhang & Liu (2025): *On computing and the complexity of
+  computing higher-order U-statistics, exactly*
+
+### Key Features
+
+- **Flexible basis expansion**: Supports B-splines, Fourier basis, or
+  raw covariates
+- **Multiple inversion methods**: Direct, nonlinear shrinkage, or
+  corpcor regularization
+- **Sample splitting support**: Optional K-fold cross-fitting between
+  the estimation of the inverse weighted Gram matrix and the computation
+  of the U-statistics (eHOIF; see the Sample Splitting section)
+- **Dual computational backends**: Fast Python backend via the `ustats`
+  package, or a pure R fallback
+- **Any order with the Python backend** (pure R mode supports orders up
+  to 6)
+
+## Mathematical Background
+
+### The HOIF Framework
+
+The HOIF estimator for ATE is defined as:
+
+``` math
+
+\mathbb{ATE}_m(\hat{\Omega}^a) = \mathbb{HOIF}^1_m - \mathbb{HOIF}^0_m
+```
+
+where for each treatment arm $`a \in \{0,1\}`$:
+
+``` math
+
+\mathbb{HOIF}^a_m(\hat{\Omega}^a) = \sum_{j=2}^m \mathbb{IF}^a_j(\hat{\Omega}^a) = \sum_{i=2}^m \sum_{j=2}^{i} \binom{i-2}{i-j} \mathbb{U}^a_j(\hat{\Omega}^a)
+```
+
+### U-Statistics Formulation
+
+The core computational building block is the U-statistic:
+
+``` math
+
+\mathbb{U}^a_m(\hat{\Omega}^a) = (-1)^m \frac{(n-m)!}{n!} \sum_{\substack{(i_1, \ldots, i_m) : \\ i_1 \neq \cdots \neq i_m}} r^a_{i_1} \prod_{s=1}^{m-1} \{Z_{i_s}^\top \hat{\Omega}^a s^a_{i_{s+1}} Z_{i_{s+1}}\} R^a_{i_m}
+```
+
+where:
+
+- $`s^a_i = A_i^a (1-A_i)^{1-a}`$ is the treatment indicator
+- $`r^a_i = 1 - s^a_i / \pi^a(X_i)`$ is the inverse propensity weight
+  residual
+- $`R^a_i = Y_i - \hat{\mu}(a, X_i)`$ is the outcome residual
+- $`Z_i`$ are the transformed covariates
+- $`\hat{\Omega}^a`$ is the inverse weighted Gram matrix
+
+The full algorithmic workflow, mathematical formulas, and all parameters
+are documented in the PDF shipped with the package:
+`system.file("extdoc", "HOIF.pdf", package = "HOIF")`.
+
+### Sample Splitting
+
+Conceptually, HOIF estimation involves **three** separate estimation
+tasks, and ideally each would use its own, independent part of the data:
+
+1.  **The nuisance functions**: estimating $`\hat{\mu}(1, X)`$,
+    $`\hat{\mu}(0, X)`$ and $`\hat{\pi}(X)`$;
+2.  **The inverse weighted Gram matrix** $`\hat{\Omega}^a`$;
+3.  **The higher-order U-statistics** built from $`\hat{\Omega}^a`$.
+
+This package deliberately does **not** implement task 1:
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
+only takes the *predicted values* `mu1`, `mu0`, `pi` as inputs, and how
+(and on which sample) the nuisance functions are estimated is entirely
+up to the user. Accordingly, the full three-way cross-fitting is **not**
+performed by the package; the `sample_split` argument only controls the
+split between tasks 2 and 3:
+
+- **`sample_split = TRUE` (eHOIF)**: the sample passed to
+  [`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
+  is split into `n_folds` folds $`(I_1, \ldots, I_K)`$. For each fold
+  $`j`$, $`\hat{\Omega}^a`$ is estimated on the observations **not** in
+  $`I_j`$, the U-statistics are computed on the observations **in**
+  $`I_j`$, and the results are averaged across the folds.
+- **`sample_split = FALSE` (sHOIF)**: $`\hat{\Omega}^a`$ and the
+  U-statistics are computed on the same sample, without distinction.
+
+The Quick Start example below follows this structure: the nuisance
+functions are fitted on one half of the data, and
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md) is
+run on the other half.
+
+## Installation
+
+``` r
+# From CRAN (once accepted):
+# install.packages("HOIF")
+
+# Development version from GitHub (also installs the ustats R package):
+# install.packages("devtools")
+devtools::install_github("cxy0714/HOIF")
+```
+
+### Setting up the Python backend
+
+The default backend computes the higher-order U-statistics in Python via
+the `ustats` package. The Python dependencies (`u-stats`, `numpy`,
+`torch`) are **provisioned automatically**: with `reticulate` (\>= 1.41)
+installed, the first call that needs Python (e.g. the first
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
+call) downloads a private Python together with the required packages
+into a cached environment and reuses it in later sessions. No manual
+setup is needed in most cases:
+
+``` r
+library(HOIF)
+# First call provisions the Python environment automatically:
+# results <- hoif_ate(...)
+```
+
+If you prefer a persistent, dedicated environment, or want to control
+how PyTorch is installed (CPU-only build vs. CUDA), use the helpers from
+`ustats`:
+
+``` r
+ustats::setup_ustats()             # CPU-only PyTorch (small download)
+ustats::setup_ustats(gpu = TRUE)   # default PyPI PyTorch (CUDA on Linux)
+ustats::check_ustats_setup()       # verify the environment
+```
+
+You can also point `reticulate` to your own Python/conda environment
+(with `u-stats` installed via `pip install u-stats`) **before** Python
+initializes:
+
+``` r
+reticulate::use_condaenv("your_env_name", required = TRUE)
+# or set the RETICULATE_PYTHON environment variable
+```
+
+See `vignette("ustats", package = "ustats")` for a complete installation
+guide and troubleshooting tips.
+
+### No Python at all?
+
+Set `pure_R_code = TRUE` in
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md):
+the U-statistics are then computed with a pure R implementation (orders
+up to 6) and no Python runtime is required.
+
+## Quick Start Example
+
+Let’s demonstrate the recommended workflow with a simple simulated
+example, following the three-task structure described in the Sample
+Splitting section above: the nuisance functions are fitted on one half
+of the data (the *nuisance sample*),
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md) is
+run on the other half (the *estimation sample*), and within the
+estimation sample we compute both the eHOIF and the sHOIF estimators.
+
+### Generate Simulated Data
+
+``` r
+library(HOIF)
+
+set.seed(123)
+n <- 500
+p <- 2
+
+# Generate covariates
+X <- matrix(rnorm(n * p), ncol = p)
+
+# True propensity score
+true_pi <- plogis(0.5 * X[,1] - 0.3 * X[,2])
+
+# Generate treatment
+A <- rbinom(n, 1, true_pi)
+
+# True outcome functions
+mu1_true <- 1 + 0.5 * X[,1] + 0.3 * X[,2]^2
+mu0_true <- 0.3 * X[,1] - 0.2 * X[,2]
+
+# Generate outcomes
+Y <- A * mu1_true + (1 - A) * mu0_true + rnorm(n, 0, 0.5)
+
+# True ATE
+true_ate <- mean(mu1_true - mu0_true)
+cat("True ATE:", round(true_ate, 4), "\n")
+#> True ATE: 1.3124
+```
+
+### Split the Sample
+
+The nuisance sample is used **only** to fit the nuisance functions; the
+estimation sample is used **only** by
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md).
+This keeps the nuisance predictions independent of the sample on which
+the HOIF estimator is computed.
+
+``` r
+idx_nuis <- sample(n, n / 2)
+idx_est  <- setdiff(seq_len(n), idx_nuis)
+
+X_nuis <- X[idx_nuis, , drop = FALSE]
+A_nuis <- A[idx_nuis]
+Y_nuis <- Y[idx_nuis]
+
+X_est <- X[idx_est, , drop = FALSE]
+A_est <- A[idx_est]
+Y_est <- Y[idx_est]
+```
+
+### Estimate Nuisance Functions on the Nuisance Sample
+
+The package **only consumes the predicted values** of the nuisance
+functions. Here we use simple (generalized) linear models; in practice,
+any flexible machine learning method can be used.
+
+``` r
+# Outcome regressions, fitted on the nuisance sample only
+fit_mu1 <- lm(Y_nuis ~ X_nuis, subset = A_nuis == 1)
+fit_mu0 <- lm(Y_nuis ~ X_nuis, subset = A_nuis == 0)
+
+# Propensity score, fitted on the nuisance sample only
+fit_pi <- glm(A_nuis ~ X_nuis, family = binomial)
+
+# Predict all nuisance functions on the estimation sample
+mu1_hat <- as.vector(cbind(1, X_est) %*% coef(fit_mu1))
+mu0_hat <- as.vector(cbind(1, X_est) %*% coef(fit_mu0))
+pi_hat  <- as.vector(plogis(cbind(1, X_est) %*% coef(fit_pi)))
+
+# Ensure propensity scores are bounded away from 0 and 1
+pi_hat <- pmax(pmin(pi_hat, 0.95), 0.05)
+```
+
+### Compute the eHOIF Estimator (with sample splitting)
+
+Within the estimation sample,
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
+cross-fits the inverse weighted Gram matrix against the U-statistics
+over `n_folds` folds:
+
+``` r
+results_ehoif <- hoif_ate(
+  X = X_est,
+  A = A_est,
+  Y = Y_est,
+  mu1 = mu1_hat,
+  mu0 = mu0_hat,
+  pi = pi_hat,
+  transform_method = "none",  # Use raw covariates
+  inverse_method = "direct",
+  m = 7,                      # Compute up to 7th order
+  sample_split = TRUE,
+  n_folds = 2,
+  seed = 42,
+  backend = "torch"           # Use Python backend
+)
+
+print(results_ehoif)
+#> HOIF Estimators for Average Treatment Effect
+#> =============================================
+#>
+#> Estimates by order:
+#>   Order     ATE  HOIF1  HOIF0
+#> 1     2 -0.0073 0.0093 0.0167
+#> 2     3 -0.0162 0.0013 0.0175
+#> 3     4 -0.0156 0.0034 0.0190
+#> 4     5 -0.0155 0.0030 0.0185
+#> 5     6 -0.0157 0.0026 0.0183
+#> 6     7 -0.0156 0.0027 0.0183
+#>
+#> Final ATE estimate (highest order): -0.0156
+```
+
+### Compute the sHOIF Estimator (without sample splitting)
+
+Still using the independent nuisance predictions from above; only the
+split between the Gram matrix and the U-statistics is dropped:
+
+``` r
+results_shoif <- hoif_ate(
+  X = X_est,
+  A = A_est,
+  Y = Y_est,
+  mu1 = mu1_hat,
+  mu0 = mu0_hat,
+  pi = pi_hat,
+  transform_method = "none",
+  inverse_method = "direct",
+  m = 7,
+  sample_split = FALSE,
+  backend = "torch"
+)
+
+print(results_shoif)
+#> HOIF Estimators for Average Treatment Effect
+#> =============================================
+#>
+#> Estimates by order:
+#>   Order     ATE   HOIF1  HOIF0
+#> 1     2 -0.0180 -0.0026 0.0154
+#> 2     3 -0.0187 -0.0026 0.0160
+#> 3     4 -0.0183 -0.0026 0.0157
+#> 4     5 -0.0183 -0.0026 0.0157
+#> 5     6 -0.0183 -0.0026 0.0157
+#> 6     7 -0.0183 -0.0026 0.0157
+#>
+#> Final ATE estimate (highest order): -0.0183
+```
+
+Note that the reported `ATE` values are the higher-order influence
+function terms of orders 2 to $`m`$: they estimate the **estimable
+bias** of the standard first-order doubly robust (AIPW/DML) estimator
+and are used to debias it. They are *not* by themselves the full ATE
+point estimate (compare with the true ATE of 1.3124 above).
+
+### Visualize Convergence
+
+``` r
+plot(results_ehoif)
+```
+
+## Main Function: `hoif_ate()`
+
+The primary interface for computing HOIF estimators.
+
+### Arguments
+
+- **X**: Covariate matrix ($`n \times p`$)
+- **A**: Treatment vector (0 or 1)
+- **Y**: Outcome vector
+- **mu1, mu0**: Predicted outcomes under treatment and control
+- **pi**: Predicted propensity scores
+- **transform_method**: Covariate transformation method
+  - `"none"`: No transformation (use raw covariates)
+  - `"splines"`: B-splines basis expansion
+  - `"fourier"`: Fourier basis expansion
+- **basis_dim**: Number of basis functions (required if using splines or
+  Fourier)
+- **inverse_method**: Method for Gram matrix inversion
+  - `"direct"`: Cholesky-based inversion (Moore-Penrose fallback)
+  - `"nlshrink"`: Nonlinear shrinkage (Ledoit-Wolf)
+  - `"corpcor"`: Shrinkage via corpcor package
+- **m**: Maximum order (any order for the Python backend, 2-6 for pure
+  R)
+- **sample_split**: Logical; whether to cross-fit the Gram matrix
+  against the U-statistics (eHOIF vs sHOIF, see the Sample Splitting
+  section)
+- **n_folds**: Number of folds for sample splitting
+- **backend**: `"torch"` (default) or `"numpy"` for the Python backend
+- **dtype**: Numeric precision of the Python backend (`"float32"`,
+  `"float64"`, or `NULL` for automatic selection)
+- **pure_R_code**: Use pure R implementation (limited to order 6)
+- **seed**: Random seed for reproducibility
+
+### Return Value
+
+A list of class `"hoif_ate"` containing:
+
+- **ATE**: Vector of ATE estimates for orders 2 to m
+- **HOIF1**: Vector of treatment arm HOIF estimates
+- **HOIF0**: Vector of control arm HOIF estimates
+- **IIFF1**: Vector of treatment arm incremental influence function
+  terms
+- **IIFF0**: Vector of control arm incremental influence function terms
+- **orders**: Vector of orders (2:m)
+- **convergence_data**: Data frame for plotting
+
+## Advanced Usage
+
+### Using Basis Expansion
+
+For more flexible modeling of covariate relationships:
+
+``` r
+# B-splines basis
+results_splines <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  transform_method = "splines",
+  basis_dim = 5,        # 5 basis functions per covariate
+  degree = 3,           # Cubic splines
+  m = 5,
+  sample_split = FALSE
+)
+
+# Fourier basis
+results_fourier <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  transform_method = "fourier",
+  basis_dim = 4,        # 4 Fourier components per covariate
+  period = 1,
+  m = 5,
+  sample_split = FALSE
+)
+```
+
+### Sample Splitting (Cross-Fitting)
+
+To cross-fit the estimation of the inverse weighted Gram matrix against
+the computation of the U-statistics — the eHOIF estimator (see the
+Sample Splitting section under Mathematical Background for what exactly
+is split):
+
+``` r
+results_cf <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  transform_method = "none",
+  m = 5,
+  sample_split = TRUE,
+  n_folds = 5,          # 5-fold cross-fitting
+  seed = 42
+)
+```
+
+### Regularized Gram Matrix Inversion
+
+For high-dimensional settings or when facing numerical instability:
+
+``` r
+# Nonlinear shrinkage
+results_nlshrink <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  inverse_method = "nlshrink",
+  m = 5
+)
+
+# corpcor shrinkage
+results_corpcor <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  inverse_method = "corpcor",
+  m = 5
+)
+```
+
+### Pure R Backend
+
+If the Python environment is not available or for smaller problems:
+
+``` r
+results_pure_r <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  pure_R_code = TRUE,
+  m = 6  # Maximum 6 for pure R
+)
+```
+
+## Computational Details
+
+### Python Backend (ustats)
+
+The default backend uses the
+[`ustats`](https://github.com/cxy0714/U-Statistics-R) R package, an
+interface to the Python package
+[`u-stats`](https://pypi.org/project/u-stats/), for efficient
+U-statistic computation:
+
+- Supports PyTorch and NumPy backends (GPU acceleration with
+  CUDA-enabled PyTorch)
+- Handles arbitrary order U-statistics
+- Optimized for memory and speed via Einstein summation
+
+For HOIF estimators of the ATE, a key takeaway from Chen, Zhang & Liu
+(2025) is:
+
+- when the order $`m \le 7`$, the computational complexity is
+  $`O(n^3 + nk^2 + k^3 + n^2 k)`$
+- when the order $`m > 7`$, the computational complexity exceeds
+  $`O(n^4 + nk^2 + k^3 + n^2 k)`$
+
+where $`n`$ is the sample size and $`k`$ is the dimension of the
+transformed covariates.
+
+### Pure R Implementation
+
+The pure R fallback (`pure_R_code = TRUE`):
+
+- Implements orders 2-6 using recursive matrix operations
+- Uses the `SMUT` package for fast matrix multiplication
+- Removes diagonal contributions to ensure proper degenerate
+  U-statistics
+- Suitable for smaller datasets or when Python is unavailable
+
+### Performance Considerations
+
+- **Order**: Higher orders increase computation time
+- **Basis dimension**: Larger basis increases memory and computation
+- **Cross-fitting**: Multiplies computation by number of folds
+- **Precision**: On a CUDA GPU the Python backend defaults to `float32`;
+  pass `dtype = "float64"` for maximum numerical precision
+
+## Practical Recommendations
+
+### Choosing the Transformation Method
+
+- **“none”**: Use the covariates as provided (e.g. when you have already
+  constructed your own basis)
+- **“splines”**: Good for smooth nonlinear relationships
+- **“fourier”**: Suitable for periodic patterns or high-frequency
+  features
+
+### Choosing the Order
+
+For orders $`m \le 7`$ the computational complexity does not exceed that
+of ordinary matrix computations, $`O(n^3 + nk^2 + k^3 + n^2 k)`$ (Chen,
+Zhang & Liu, 2025), so going up to order 7 is cheap. A practical default
+is therefore to compute all orders up to $`m = 7`$ (the package default)
+and inspect the convergence plot. Beyond order 7 the complexity exceeds
+$`O(n^4 + nk^2 + k^3 + n^2 k)`$, so expect substantially longer run
+times.
+
+### Use a GPU if Available
+
+With `backend = "torch"` and a CUDA-enabled PyTorch (e.g. installed via
+`ustats::setup_ustats(gpu = TRUE)`), the U-statistics are computed on
+the GPU automatically — by far the most effective speedup for large
+$`n`$ or $`k`$. On a GPU the default precision is `float32`; pass
+`dtype = "float64"` if you need maximum numerical precision.
+
+### Sample Splitting
+
+See the Sample Splitting section under Mathematical Background: the
+package only cross-fits the inverse weighted Gram matrix against the
+U-statistics (`sample_split = TRUE`, eHOIF). The nuisance functions are
+inputs — estimating them, ideally on a separate, independent sample, is
+the user’s responsibility (as demonstrated in the Quick Start example).
+
+## Troubleshooting
+
+### Python Backend Issues
+
+Verify the Python environment used by `ustats`:
+
+``` r
+ustats::check_ustats_setup()
+```
+
+If the environment cannot be repaired easily, switch to the pure R
+implementation:
+
+``` r
+results <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  pure_R_code = TRUE,
+  m = 6  # Limited to order 6
+)
+```
+
+### Numerical Instability
+
+If you see warnings about matrix inversion:
+
+``` r
+# Try shrinkage methods
+results <- hoif_ate(
+  X = X_est, A = A_est, Y = Y_est,
+  mu1 = mu1_hat, mu0 = mu0_hat, pi = pi_hat,
+  inverse_method = "nlshrink"  # or "corpcor"
+)
+```
+
+### Extreme Propensity Scores
+
+Always trim propensity scores to avoid numerical issues:
+
+``` r
+# Trim to [0.05, 0.95]
+pi_hat <- pmax(pmin(pi_hat, 0.95), 0.05)
+```
+
+## References
+
+1.  Robins, J. M., Li, L., Tchetgen Tchetgen, E., & van der Vaart, A.
+    (2008). Higher order influence functions and minimax estimation of
+    nonlinear functionals. *Probability and Statistics: Essays in Honor
+    of David A. Freedman*, 335-421. <doi:10.1214/193940307000000527>
+
+2.  Robins, J. M., Li, L., Mukherjee, R., Tchetgen Tchetgen, E., & van
+    der Vaart, A. (2017). Minimax estimation of a functional on a
+    structured high-dimensional model. *Annals of Statistics*, 45(5),
+    1951-1987.
+
+3.  Liu, L., Mukherjee, R., Newey, W. K., & Robins, J. M. (2017).
+    Semiparametric efficient empirical higher order influence function
+    estimators. *arXiv preprint* <doi:10.48550/arXiv.1705.07577>
+
+4.  Liu, L., & Li, C. (2023). New √n-consistent, numerically stable
+    higher-order influence function estimators. *arXiv preprint*
+    <doi:10.48550/arXiv.2302.08097>
+
+5.  Chen, X., Zhang, R., & Liu, L. (2025). On computing and the
+    complexity of computing higher-order U-statistics, exactly. *arXiv
+    preprint* <doi:10.48550/arXiv.2508.12627>
