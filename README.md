@@ -4,6 +4,8 @@
 
 **HOIF** is an `R` package for the implementation of **Higher-Order Influence Function (HOIF)** estimators for the **Average Treatment Effect (ATE)**. The methodology is based on a series of foundational works by James M. Robins and his collaborators [1–4].
 
+The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`inst/extdoc/HOIF.pdf`](inst/extdoc/HOIF.pdf) (after installation: `system.file("extdoc", "HOIF.pdf", package = "HOIF")`) and in the [package vignette](https://cxy0714.github.io/HOIF/articles/hoif-vignette.html) — both can be used as references.
+
 ---
 
 ## The Core Computation
@@ -25,8 +27,6 @@ For HOIF estimators of the ATE, a key takeaway is:
 
 Here, $n$ is the sample size and $k$ is the user-defined dimension of the transformed covariates $X$.
 For more details on computing the higher-order U-statistics arising in HOIF, see Section 4.1 of [5].
-
-The overall algorithmic workflow, mathematical formulas, and all parameters of `HOIF` are illustrated in [`inst/extdoc/HOIF.pdf`](inst/extdoc/HOIF.pdf) (after installation: `system.file("extdoc", "HOIF.pdf", package = "HOIF")`).
 
 ---
 
@@ -122,9 +122,9 @@ results <- hoif_ate(X, A, Y, mu1 = mu1, mu0 = mu0, pi = pi,
 
 ---
 
-## A Note on Sample Splitting
+## Example
 
-Conceptually, HOIF estimation involves **three** estimation tasks, and ideally each uses its own, independent part of the data:
+Before the code, a note on **sample splitting**. Conceptually, HOIF estimation involves **three** estimation tasks, and ideally each uses its own, independent part of the data:
 
 1. estimating the **nuisance functions** $\hat{\mu}(1, X), \hat{\mu}(0, X), \hat{\pi}(X)$;
 2. estimating the **inverse weighted Gram matrix** $\hat{\Omega}^a$;
@@ -135,9 +135,7 @@ This package does **not** implement task 1: `hoif_ate()` only takes the *predict
 - `sample_split = TRUE` (**eHOIF**): cross-fits the Gram matrix against the U-statistics over `n_folds` folds and averages the results;
 - `sample_split = FALSE` (**sHOIF**): computes both on the same sample, without distinction.
 
----
-
-## Example
+The example below shows the recommended workflow. The data are first split in half: the nuisance functions are fitted on one half (task 1) and `hoif_ate()` is run **only** on the other half (tasks 2–3), so the nuisance predictions are independent of the estimation sample. Within the estimation half, **eHOIF** then additionally cross-fits the Gram matrix against the U-statistics, while **sHOIF** uses the estimation half as is.
 
 A more comprehensive example can be found in [`test_manual/manual_test.R`](test_manual/manual_test.R).
 
@@ -146,7 +144,7 @@ library(HOIF)
 
 set.seed(123)
 
-n <- 1000   # Sample size
+n <- 2000   # Total sample size
 p <- 50     # Number of covariates
 
 # Covariates
@@ -163,44 +161,56 @@ beta <- beta / sqrt(as.numeric(crossprod(beta)))
 Y <- as.numeric(A + X %*% beta + rnorm(n, 0, 0.1))
 
 
-### Step 1: Estimate nuisance outcome regressions (here we omit the
-### estimation of the propensity score by using the known randomization
-### probability)
+### Step 1: Split the sample ---------------------------------------------
+### One half (the "nuisance sample") is used only to fit the nuisance
+### regressions; the other half (the "estimation sample") is used only by
+### hoif_ate(). This keeps the nuisance predictions independent of the
+### sample on which the HOIF estimator is computed.
+
+idx_nuis <- sample(n, n / 2)
+idx_est  <- setdiff(seq_len(n), idx_nuis)
+
+X_nuis <- X[idx_nuis, , drop = FALSE]
+A_nuis <- A[idx_nuis]
+Y_nuis <- Y[idx_nuis]
+
+X_est <- X[idx_est, , drop = FALSE]
+A_est <- A[idx_est]
+Y_est <- Y[idx_est]
+
+
+### Step 2: Estimate nuisance outcome regressions on the nuisance sample
+### and predict them on the estimation sample (here we omit the estimation
+### of the propensity score by using the known randomization probability)
 
 # - mu1(X) = E[Y | A = 1, X]
 # - mu0(X) = E[Y | A = 0, X]
 
-idx1 <- which(A == 1)
-idx0 <- which(A == 0)
-
-X1 <- X[idx1, , drop = FALSE]
-Y1 <- Y[idx1]
-
-X0 <- X[idx0, , drop = FALSE]
-Y0 <- Y[idx0]
-
 library(glmnet)
 
-cv_fit1 <- cv.glmnet(X1, Y1, alpha = 1)
-mu1_hat_all <- predict(cv_fit1, newx = X, s = "lambda.min")
+cv_fit1 <- cv.glmnet(X_nuis[A_nuis == 1, , drop = FALSE],
+                     Y_nuis[A_nuis == 1], alpha = 1)
+cv_fit0 <- cv.glmnet(X_nuis[A_nuis == 0, , drop = FALSE],
+                     Y_nuis[A_nuis == 0], alpha = 1)
 
-cv_fit0 <- cv.glmnet(X0, Y0, alpha = 1)
-mu0_hat_all <- predict(cv_fit0, newx = X, s = "lambda.min")
+mu1 <- as.vector(predict(cv_fit1, newx = X_est, s = "lambda.min"))
+mu0 <- as.vector(predict(cv_fit0, newx = X_est, s = "lambda.min"))
 
-mu1 <- as.vector(mu1_hat_all)
-mu0 <- as.vector(mu0_hat_all)
-
-# Known propensity score
-pi <- rep(0.5, n)
+# Known propensity score (randomized treatment)
+pi <- rep(0.5, length(idx_est))
 
 
-### Step 2: Run HOIF with sample splitting (eHOIF)
+### Step 3: eHOIF -- cross-fit the Gram matrix vs the U-statistics --------
+### Within the estimation sample, hoif_ate() splits the data into n_folds
+### folds: for each fold, the inverse weighted Gram matrix is estimated on
+### the other folds, the U-statistics are computed on the held-out fold,
+### and the results are averaged.
 
 m <- 7
 n_folds <- 2
 
 results_split <- hoif_ate(
-  X, A, Y,
+  X_est, A_est, Y_est,
   mu1 = mu1,
   mu0 = mu0,
   pi = pi,
@@ -212,16 +222,17 @@ results_split <- hoif_ate(
   backend = "torch"
 )
 
-cat("\nResults (with sample splitting):\n")
+cat("\nResults (eHOIF, with sample splitting):\n")
 print(results_split)
 plot(results_split)
 
-### Step 3: Run HOIF without sample splitting (sHOIF)
 
-m <- 7
+### Step 4: sHOIF -- Gram matrix and U-statistics on the same sample ------
+### Still uses the independent nuisance predictions from Step 2; only the
+### split between the Gram matrix and the U-statistics is dropped.
 
 results_no_split <- hoif_ate(
-  X, A, Y,
+  X_est, A_est, Y_est,
   mu1 = mu1,
   mu0 = mu0,
   pi = pi,
@@ -231,7 +242,7 @@ results_no_split <- hoif_ate(
   backend = "torch"
 )
 
-cat("\nResults (without sample splitting):\n")
+cat("\nResults (sHOIF, without sample splitting):\n")
 print(results_no_split)
 plot(results_no_split)
 ```
