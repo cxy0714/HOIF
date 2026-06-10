@@ -89,8 +89,9 @@ where:
 - $\hat{\Omega}^a$ is the inverse weighted Gram matrix
 
 The full algorithmic workflow, mathematical formulas, and all parameters are
-documented in the PDF shipped with the package:
-`system.file("extdoc", "HOIF.pdf", package = "HOIF")`.
+documented in the PDF shipped with the package
+(`system.file("extdoc", "HOIF.pdf", package = "HOIF")`, also available
+[on GitHub](https://github.com/cxy0714/HOIF/blob/master/inst/extdoc/HOIF.pdf)).
 
 ## Sample Splitting
 
