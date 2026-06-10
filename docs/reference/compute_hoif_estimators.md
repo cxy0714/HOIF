@@ -71,7 +71,7 @@ Omega <- compute_gram_inverse(Z, A)
 B <- compute_basis_matrix(Z, A, Omega$Omega1, Omega$Omega0)
 est <- compute_hoif_estimators(residuals, B, m = 6, pure_R_code = TRUE)
 est$ATE
-#> [1] -0.04885023 -0.05408448 -0.05178525 -0.05026342 -0.04996561
+#> [1] -0.04685879 -0.05019283 -0.04800393 -0.04703972 -0.04698073
 
 if (FALSE) { # \dontrun{
 # Python backend (requires the 'ustats' Python dependencies), any order

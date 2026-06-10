@@ -55,49 +55,45 @@ algorithm and its computational complexity are analyzed in:
 
 The HOIF estimator for ATE is defined as:
 
-``` math
+$${{\mathbb{A}}{\mathbb{T}}{\mathbb{E}}}_{m}\left( {\widehat{\Omega}}^{a} \right) = {{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{1} - {{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{0}$$
 
-\mathbb{ATE}_m(\hat{\Omega}^a) = \mathbb{HOIF}^1_m - \mathbb{HOIF}^0_m
-```
+where for each treatment arm $a \in \{ 0,1\}$:
 
-where for each treatment arm $`a \in \{0,1\}`$:
-
-``` math
-
-\mathbb{HOIF}^a_m(\hat{\Omega}^a) = \sum_{j=2}^m \mathbb{IF}^a_j(\hat{\Omega}^a) = \sum_{i=2}^m \sum_{j=2}^{i} \binom{i-2}{i-j} \mathbb{U}^a_j(\hat{\Omega}^a)
-```
+$${{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{a}\left( {\widehat{\Omega}}^{a} \right) = \sum\limits_{j = 2}^{m}{{\mathbb{I}}{\mathbb{F}}}_{j}^{a}\left( {\widehat{\Omega}}^{a} \right) = \sum\limits_{i = 2}^{m}\sum\limits_{j = 2}^{i}\left( \frac{i - 2}{i - j} \right){\mathbb{U}}_{j}^{a}\left( {\widehat{\Omega}}^{a} \right)$$
 
 ### U-Statistics Formulation
 
 The core computational building block is the U-statistic:
 
-``` math
-
-\mathbb{U}^a_m(\hat{\Omega}^a) = (-1)^m \frac{(n-m)!}{n!} \sum_{\substack{(i_1, \ldots, i_m) : \\ i_1 \neq \cdots \neq i_m}} r^a_{i_1} \prod_{s=1}^{m-1} \{Z_{i_s}^\top \hat{\Omega}^a s^a_{i_{s+1}} Z_{i_{s+1}}\} R^a_{i_m}
-```
+$${\mathbb{U}}_{m}^{a}\left( {\widehat{\Omega}}^{a} \right) = ( - 1)^{m}\frac{(n - m)!}{n!}\sum\limits_{\substack{{(i_{1},\ldots,i_{m})}: \\ i_{1} \neq \cdots \neq i_{m}}}r_{i_{1}}^{a}\prod\limits_{s = 1}^{m - 1}\{ Z_{i_{s}}^{\top}{\widehat{\Omega}}^{a}s_{i_{s + 1}}^{a}Z_{i_{s + 1}}\} R_{i_{m}}^{a}$$
 
 where:
 
-- $`s^a_i = A_i^a (1-A_i)^{1-a}`$ is the treatment indicator
-- $`r^a_i = 1 - s^a_i / \pi^a(X_i)`$ is the inverse propensity weight
-  residual
-- $`R^a_i = Y_i - \hat{\mu}(a, X_i)`$ is the outcome residual
-- $`Z_i`$ are the transformed covariates
-- $`\hat{\Omega}^a`$ is the inverse weighted Gram matrix
+- $s_{i}^{a} = A_{i}^{a}\left( 1 - A_{i} \right)^{1 - a}$ is the
+  treatment indicator
+- $r_{i}^{a} = 1 - s_{i}^{a}/\pi^{a}\left( X_{i} \right)$ is the inverse
+  propensity weight residual
+- $R_{i}^{a} = Y_{i} - \widehat{\mu}\left( a,X_{i} \right)$ is the
+  outcome residual
+- $Z_{i}$ are the transformed covariates
+- ${\widehat{\Omega}}^{a}$ is the inverse weighted Gram matrix
 
 The full algorithmic workflow, mathematical formulas, and all parameters
-are documented in the PDF shipped with the package:
-`system.file("extdoc", "HOIF.pdf", package = "HOIF")`.
+are documented in the PDF shipped with the package
+(`system.file("extdoc", "HOIF.pdf", package = "HOIF")`, also available
+[on
+GitHub](https://github.com/cxy0714/HOIF/blob/master/inst/extdoc/HOIF.pdf)).
 
 ### Sample Splitting
 
 Conceptually, HOIF estimation involves **three** separate estimation
 tasks, and ideally each would use its own, independent part of the data:
 
-1.  **The nuisance functions**: estimating $`\hat{\mu}(1, X)`$,
-    $`\hat{\mu}(0, X)`$ and $`\hat{\pi}(X)`$;
-2.  **The inverse weighted Gram matrix** $`\hat{\Omega}^a`$;
-3.  **The higher-order U-statistics** built from $`\hat{\Omega}^a`$.
+1.  **The nuisance functions**: estimating $\widehat{\mu}(1,X)$,
+    $\widehat{\mu}(0,X)$ and $\widehat{\pi}(X)$;
+2.  **The inverse weighted Gram matrix** ${\widehat{\Omega}}^{a}$;
+3.  **The higher-order U-statistics** built from
+    ${\widehat{\Omega}}^{a}$.
 
 This package deliberately does **not** implement task 1:
 [`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
@@ -109,11 +105,12 @@ split between tasks 2 and 3:
 
 - **`sample_split = TRUE` (eHOIF)**: the sample passed to
   [`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md)
-  is split into `n_folds` folds $`(I_1, \ldots, I_K)`$. For each fold
-  $`j`$, $`\hat{\Omega}^a`$ is estimated on the observations **not** in
-  $`I_j`$, the U-statistics are computed on the observations **in**
-  $`I_j`$, and the results are averaged across the folds.
-- **`sample_split = FALSE` (sHOIF)**: $`\hat{\Omega}^a`$ and the
+  is split into `n_folds` folds $\left( I_{1},\ldots,I_{K} \right)$. For
+  each fold $j$, ${\widehat{\Omega}}^{a}$ is estimated on the
+  observations **not** in $I_{j}$, the U-statistics are computed on the
+  observations **in** $I_{j}$, and the results are averaged across the
+  folds.
+- **`sample_split = FALSE` (sHOIF)**: ${\widehat{\Omega}}^{a}$ and the
   U-statistics are computed on the same sample, without distinction.
 
 The Quick Start example below follows this structure: the nuisance
@@ -180,13 +177,18 @@ up to 6) and no Python runtime is required.
 
 ## Quick Start Example
 
-Let’s demonstrate the recommended workflow with a simple simulated
-example, following the three-task structure described in the Sample
-Splitting section above: the nuisance functions are fitted on one half
-of the data (the *nuisance sample*),
+Let’s demonstrate the recommended workflow with a simulated example,
+following the three-task structure described in the Sample Splitting
+section above: the nuisance functions are fitted on one half of the data
+(the *nuisance sample*),
 [`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md) is
 run on the other half (the *estimation sample*), and within the
 estimation sample we compute both the eHOIF and the sHOIF estimators.
+
+To make the role of the HOIF correction visible, the nuisance models are
+**deliberately misspecified** (they use only 3 of the 10 confounders),
+so the first-order AIPW estimator carries a clear bias — which the HOIF
+terms then estimate and remove.
 
 ### Generate Simulated Data
 
@@ -194,29 +196,35 @@ estimation sample we compute both the eHOIF and the sHOIF estimators.
 library(HOIF)
 
 set.seed(123)
-n <- 500
-p <- 2
+n <- 2000
+p <- 10
 
-# Generate covariates
+# Covariates (all of them are confounders)
 X <- matrix(rnorm(n * p), ncol = p)
 
-# True propensity score
-true_pi <- plogis(0.5 * X[,1] - 0.3 * X[,2])
+# True propensity score and outcome regressions: linear, loading on
+# ALL covariates
+beta_pi <- c(0.3, -0.2, 0.2, rep(0.25, 7))
+beta1   <- c(0.5,  0.4, 0.3, rep(0.4, 7))
+beta0   <- c(0.3,  0.2, 0.1, rep(0.3, 7))
 
-# Generate treatment
+true_pi <- plogis(as.vector(X %*% beta_pi))
 A <- rbinom(n, 1, true_pi)
 
-# True outcome functions
-mu1_true <- 1 + 0.5 * X[,1] + 0.3 * X[,2]^2
-mu0_true <- 0.3 * X[,1] - 0.2 * X[,2]
+mu1_true <- as.vector(1 + X %*% beta1)
+mu0_true <- as.vector(X %*% beta0)
+Y <- A * mu1_true + (1 - A) * mu0_true + rnorm(n, 0, 0.2)
 
-# Generate outcomes
-Y <- A * mu1_true + (1 - A) * mu0_true + rnorm(n, 0, 0.5)
-
-# True ATE
-true_ate <- mean(mu1_true - mu0_true)
-cat("True ATE:", round(true_ate, 4), "\n")
-#> True ATE: 1.3124
+# True targets
+psi1_true <- mean(mu1_true)
+psi0_true <- mean(mu0_true)
+true_ate  <- psi1_true - psi0_true
+cat("True E[Y(1)]:", round(psi1_true, 4), "\n")
+#> True E[Y(1)]: 0.9799
+cat("True E[Y(0)]:", round(psi0_true, 4), "\n")
+#> True E[Y(0)]: -0.016
+cat("True ATE:    ", round(true_ate, 4), "\n")
+#> True ATE:     0.9958
 ```
 
 ### Split the Sample
@@ -240,28 +248,56 @@ A_est <- A[idx_est]
 Y_est <- Y[idx_est]
 ```
 
-### Estimate Nuisance Functions on the Nuisance Sample
+### Estimate (Misspecified) Nuisance Functions on the Nuisance Sample
 
 The package **only consumes the predicted values** of the nuisance
-functions. Here we use simple (generalized) linear models; in practice,
-any flexible machine learning method can be used.
+functions; in practice, any flexible machine learning method can be used
+to produce them. Here, to mimic misspecification, the working models use
+**only the first 3 covariates** and ignore the remaining confounders:
 
 ``` r
+S <- 1:3  # the working models ignore covariates 4..10
+
 # Outcome regressions, fitted on the nuisance sample only
-fit_mu1 <- lm(Y_nuis ~ X_nuis, subset = A_nuis == 1)
-fit_mu0 <- lm(Y_nuis ~ X_nuis, subset = A_nuis == 0)
+fit_mu1 <- lm(Y_nuis ~ X_nuis[, S], subset = A_nuis == 1)
+fit_mu0 <- lm(Y_nuis ~ X_nuis[, S], subset = A_nuis == 0)
 
 # Propensity score, fitted on the nuisance sample only
-fit_pi <- glm(A_nuis ~ X_nuis, family = binomial)
+fit_pi <- glm(A_nuis ~ X_nuis[, S], family = binomial)
 
 # Predict all nuisance functions on the estimation sample
-mu1_hat <- as.vector(cbind(1, X_est) %*% coef(fit_mu1))
-mu0_hat <- as.vector(cbind(1, X_est) %*% coef(fit_mu0))
-pi_hat  <- as.vector(plogis(cbind(1, X_est) %*% coef(fit_pi)))
+mu1_hat <- as.vector(cbind(1, X_est[, S]) %*% coef(fit_mu1))
+mu0_hat <- as.vector(cbind(1, X_est[, S]) %*% coef(fit_mu0))
+pi_hat  <- as.vector(plogis(cbind(1, X_est[, S]) %*% coef(fit_pi)))
 
 # Ensure propensity scores are bounded away from 0 and 1
 pi_hat <- pmax(pmin(pi_hat, 0.95), 0.05)
 ```
+
+### The First-Order AIPW Estimator and its Bias
+
+The HOIF terms estimate the **estimable bias** of the standard
+first-order doubly robust (AIPW/DML) estimator, so let us compute that
+estimator first, together with its actual error:
+
+``` r
+psi1_aipw <- mean(mu1_hat + A_est / pi_hat * (Y_est - mu1_hat))
+psi0_aipw <- mean(mu0_hat + (1 - A_est) / (1 - pi_hat) * (Y_est - mu0_hat))
+ate_aipw  <- psi1_aipw - psi0_aipw
+
+cat("AIPW estimates: E[Y(1)] =", round(psi1_aipw, 4),
+    "  E[Y(0)] =", round(psi0_aipw, 4),
+    "  ATE =", round(ate_aipw, 4), "\n")
+#> AIPW estimates: E[Y(1)] = 1.1749   E[Y(0)] = -0.2676   ATE = 1.4425
+cat("AIPW errors:    E[Y(1)] =", round(psi1_aipw - psi1_true, 4),
+    "  E[Y(0)] =", round(psi0_aipw - psi0_true, 4),
+    "  ATE =", round(ate_aipw - true_ate, 4), "\n")
+#> AIPW errors:    E[Y(1)] = 0.195   E[Y(0)] = -0.2516   ATE = 0.4466
+```
+
+Because of the misspecified nuisance models, the AIPW estimator misses
+the true ATE by about 0.45 — a bias that no amount of data will remove.
+We now estimate this bias with HOIF.
 
 ### Compute the eHOIF Estimator (with sample splitting)
 
@@ -291,16 +327,17 @@ print(results_ehoif)
 #> HOIF Estimators for Average Treatment Effect
 #> =============================================
 #>
-#> Estimates by order:
-#>   Order     ATE  HOIF1  HOIF0
-#> 1     2 -0.0073 0.0093 0.0167
-#> 2     3 -0.0162 0.0013 0.0175
-#> 3     4 -0.0156 0.0034 0.0190
-#> 4     5 -0.0155 0.0030 0.0185
-#> 5     6 -0.0157 0.0026 0.0183
-#> 6     7 -0.0156 0.0027 0.0183
+#> Higher-order correction terms by order:
+#>   Order     ATE   HOIF1  HOIF0
+#> 1     2 -0.4621 -0.2615 0.2006
+#> 2     3 -0.4050 -0.2341 0.1709
+#> 3     4 -0.4335 -0.2480 0.1855
+#> 4     5 -0.4272 -0.2443 0.1829
+#> 5     6 -0.4289 -0.2456 0.1833
+#> 6     7 -0.4293 -0.2455 0.1838
 #>
-#> Final ATE estimate (highest order): -0.0156
+#> Estimated AIPW bias correction for the ATE (highest order): -0.4293
+#> (add this value to the first-order AIPW/DR estimate of the ATE to debias it)
 ```
 
 ### Compute the sHOIF Estimator (without sample splitting)
@@ -327,23 +364,58 @@ print(results_shoif)
 #> HOIF Estimators for Average Treatment Effect
 #> =============================================
 #>
-#> Estimates by order:
+#> Higher-order correction terms by order:
 #>   Order     ATE   HOIF1  HOIF0
-#> 1     2 -0.0180 -0.0026 0.0154
-#> 2     3 -0.0187 -0.0026 0.0160
-#> 3     4 -0.0183 -0.0026 0.0157
-#> 4     5 -0.0183 -0.0026 0.0157
-#> 5     6 -0.0183 -0.0026 0.0157
-#> 6     7 -0.0183 -0.0026 0.0157
+#> 1     2 -0.4318 -0.2496 0.1821
+#> 2     3 -0.4458 -0.2568 0.1890
+#> 3     4 -0.4373 -0.2520 0.1853
+#> 4     5 -0.4362 -0.2515 0.1848
+#> 5     6 -0.4366 -0.2517 0.1849
+#> 6     7 -0.4367 -0.2517 0.1849
 #>
-#> Final ATE estimate (highest order): -0.0183
+#> Estimated AIPW bias correction for the ATE (highest order): -0.4367
+#> (add this value to the first-order AIPW/DR estimate of the ATE to debias it)
 ```
 
-Note that the reported `ATE` values are the higher-order influence
-function terms of orders 2 to $`m`$: they estimate the **estimable
-bias** of the standard first-order doubly robust (AIPW/DML) estimator
-and are used to debias it. They are *not* by themselves the full ATE
-point estimate (compare with the true ATE of 1.3124 above).
+### Debias the AIPW Estimator
+
+The reported `HOIF1`/`HOIF0`/`ATE` values are the higher-order influence
+function terms of orders 2 to $m$ — they are *not* by themselves point
+estimates of $E\left\lbrack Y(1) \right\rbrack$,
+$E\left\lbrack Y(0) \right\rbrack$ or the ATE. They estimate the
+estimable bias of the AIPW estimator, with the sign convention that
+**adding** them to the AIPW estimates removes it:
+
+``` r
+psi1_ehoif <- psi1_aipw + tail(results_ehoif$HOIF1, 1)
+psi0_ehoif <- psi0_aipw + tail(results_ehoif$HOIF0, 1)
+psi1_shoif <- psi1_aipw + tail(results_shoif$HOIF1, 1)
+psi0_shoif <- psi0_aipw + tail(results_shoif$HOIF0, 1)
+
+comparison <- data.frame(
+  row.names = c("E[Y(1)]", "E[Y(0)]", "ATE"),
+  Truth = c(psi1_true, psi0_true, true_ate),
+  AIPW  = c(psi1_aipw, psi0_aipw, ate_aipw),
+  eHOIF = c(psi1_ehoif, psi0_ehoif, psi1_ehoif - psi0_ehoif),
+  sHOIF = c(psi1_shoif, psi0_shoif, psi1_shoif - psi0_shoif)
+)
+round(comparison, 4)
+#>           Truth    AIPW   eHOIF   sHOIF
+#> E[Y(1)]  0.9799  1.1749  0.9294  0.9232
+#> E[Y(0)] -0.0160 -0.2676 -0.0838 -0.0826
+#> ATE      0.9958  1.4425  1.0132  1.0058
+
+# Errors relative to the truth
+round(sweep(comparison[, -1], 1, comparison$Truth, "-"), 4)
+#>            AIPW   eHOIF   sHOIF
+#> E[Y(1)]  0.1950 -0.0505 -0.0567
+#> E[Y(0)] -0.2516 -0.0678 -0.0666
+#> ATE      0.4466  0.0174  0.0100
+```
+
+The HOIF correction removes essentially all of the AIPW bias for the ATE
+(error $\left. 0.4466\rightarrow \right.$ about $0.01$) and the bulk of
+it for each treatment arm.
 
 ### Visualize Convergence
 
@@ -357,7 +429,7 @@ The primary interface for computing HOIF estimators.
 
 ### Arguments
 
-- **X**: Covariate matrix ($`n \times p`$)
+- **X**: Covariate matrix ($n \times p$)
 - **A**: Treatment vector (0 or 1)
 - **Y**: Outcome vector
 - **mu1, mu0**: Predicted outcomes under treatment and control
@@ -499,13 +571,13 @@ U-statistic computation:
 For HOIF estimators of the ATE, a key takeaway from Chen, Zhang & Liu
 (2025) is:
 
-- when the order $`m \le 7`$, the computational complexity is
-  $`O(n^3 + nk^2 + k^3 + n^2 k)`$
-- when the order $`m > 7`$, the computational complexity exceeds
-  $`O(n^4 + nk^2 + k^3 + n^2 k)`$
+- when the order $m \leq 7$, the computational complexity is
+  $O\left( n^{3} + nk^{2} + k^{3} + n^{2}k \right)$
+- when the order $m > 7$, the computational complexity exceeds
+  $O\left( n^{4} + nk^{2} + k^{3} + n^{2}k \right)$
 
-where $`n`$ is the sample size and $`k`$ is the dimension of the
-transformed covariates.
+where $n$ is the sample size and $k$ is the dimension of the transformed
+covariates.
 
 ### Pure R Implementation
 
@@ -537,20 +609,21 @@ The pure R fallback (`pure_R_code = TRUE`):
 
 ### Choosing the Order
 
-For orders $`m \le 7`$ the computational complexity does not exceed that
-of ordinary matrix computations, $`O(n^3 + nk^2 + k^3 + n^2 k)`$ (Chen,
-Zhang & Liu, 2025), so going up to order 7 is cheap. A practical default
-is therefore to compute all orders up to $`m = 7`$ (the package default)
-and inspect the convergence plot. Beyond order 7 the complexity exceeds
-$`O(n^4 + nk^2 + k^3 + n^2 k)`$, so expect substantially longer run
-times.
+For orders $m \leq 7$ the computational complexity does not exceed that
+of ordinary matrix computations,
+$O\left( n^{3} + nk^{2} + k^{3} + n^{2}k \right)$ (Chen, Zhang & Liu,
+2025), so going up to order 7 is cheap. A practical default is therefore
+to compute all orders up to $m = 7$ (the package default) and inspect
+the convergence plot. Beyond order 7 the complexity exceeds
+$O\left( n^{4} + nk^{2} + k^{3} + n^{2}k \right)$, so expect
+substantially longer run times.
 
 ### Use a GPU if Available
 
 With `backend = "torch"` and a CUDA-enabled PyTorch (e.g. installed via
 `ustats::setup_ustats(gpu = TRUE)`), the U-statistics are computed on
-the GPU automatically — by far the most effective speedup for large
-$`n`$ or $`k`$. On a GPU the default precision is `float32`; pass
+the GPU automatically — by far the most effective speedup for large $n$
+or $k$. On a GPU the default precision is `float32`; pass
 `dtype = "float64"` if you need maximum numerical precision.
 
 ### Sample Splitting

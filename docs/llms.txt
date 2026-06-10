@@ -8,8 +8,8 @@ Effect (ATE)**. The methodology is based on a series of foundational
 works by James M. Robins and his collaborators \[1–4\].
 
 The overall algorithmic workflow, mathematical formulas, and all
-parameters of `HOIF` are illustrated in
-[`inst/extdoc/HOIF.pdf`](https://cxy0714.github.io/HOIF/inst/extdoc/HOIF.pdf)
+parameters of `HOIF` are illustrated in [`HOIF.pdf` (on
+GitHub)](https://github.com/cxy0714/HOIF/blob/master/inst/extdoc/HOIF.pdf)
 (after installation:
 `system.file("extdoc", "HOIF.pdf", package = "HOIF")`) and in the
 [package
@@ -43,13 +43,13 @@ U-statistics \[5\].
 
 For HOIF estimators of the ATE, a key takeaway is:
 
-- when the order $`m \le 7`$, the computational complexity is
-  $`O(n^3 + nk^2 + k^3 + n^2 k)`$
-- when the order $`m > 7`$, the computational complexity exceeds
-  $`O(n^4 + nk^2 + k^3 + n^2 k)`$
+- when the order $m \leq 7$, the computational complexity is
+  $O\left( n^{3} + nk^{2} + k^{3} + n^{2}k \right)$
+- when the order $m > 7$, the computational complexity exceeds
+  $O\left( n^{4} + nk^{2} + k^{3} + n^{2}k \right)$
 
-Here, $`n`$ is the sample size and $`k`$ is the user-defined dimension
-of the transformed covariates $`X`$. For more details on computing the
+Here, $n$ is the sample size and $k$ is the user-defined dimension of
+the transformed covariates $X$. For more details on computing the
 higher-order U-statistics arising in HOIF, see Section 4.1 of \[5\].
 
 ------------------------------------------------------------------------
@@ -157,8 +157,9 @@ estimation involves **three** estimation tasks, and ideally each uses
 its own, independent part of the data:
 
 1.  estimating the **nuisance functions**
-    $`\hat{\mu}(1, X), \hat{\mu}(0, X), \hat{\pi}(X)`$;
-2.  estimating the **inverse weighted Gram matrix** $`\hat{\Omega}^a`$;
+    $\widehat{\mu}(1,X),\widehat{\mu}(0,X),\widehat{\pi}(X)$;
+2.  estimating the **inverse weighted Gram matrix**
+    ${\widehat{\Omega}}^{a}$;
 3.  computing the **higher-order U-statistics**.
 
 This package does **not** implement task 1:

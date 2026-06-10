@@ -187,7 +187,7 @@ print(fit)
 #> HOIF Estimators for Average Treatment Effect
 #> =============================================
 #> 
-#> Estimates by order:
+#> Higher-order correction terms by order:
 #>   Order    ATE  HOIF1 HOIF0
 #> 1     2 -5e-04 -3e-04 1e-04
 #> 2     3 -4e-04 -3e-04 2e-04
@@ -195,7 +195,8 @@ print(fit)
 #> 4     5 -4e-04 -2e-04 2e-04
 #> 5     6 -4e-04 -2e-04 2e-04
 #> 
-#> Final ATE estimate (highest order): -4e-04 
+#> Estimated AIPW bias correction for the ATE (highest order): -4e-04 
+#> (add this value to the first-order AIPW/DR estimate of the ATE to debias it)
 
 if (FALSE) { # \dontrun{
 # Python backend (provisioned automatically on first use), order m = 7,

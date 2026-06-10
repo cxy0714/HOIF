@@ -9,7 +9,7 @@ First CRAN submission.
 - The Python dependencies (u-stats, numpy, torch) of the ‘ustats’
   backend are now provisioned automatically on first use (via reticulate
   \>= 1.41 and
-  [`reticulate::py_require()`](https://rstudio.github.io/reticulate/reference/py_require.html)
+  [`reticulate::py_require()`](https://rdrr.io/pkg/reticulate/man/py_require.html)
   declared by ‘ustats’), so most users need no manual setup. The
   installation documentation (README, vignette) was rewritten
   accordingly, covering the three setup paths: automatic,

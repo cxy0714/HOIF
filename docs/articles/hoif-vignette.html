@@ -6,10 +6,10 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Introduction to HOIF: Higher-Order Influence Function Estimators for the ATE • HOIF</title>
-<script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<script src="../deps/jquery-3.6.1/jquery-3.6.1.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
-<link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Introduction to HOIF: Higher-Order Influence Function Estimators for the ATE">
 </head>
 <body>
@@ -60,7 +60,7 @@
                         <h4 data-toc-skip class="author">Xingyu
 Chen</h4>
             
-            <h4 data-toc-skip class="date">2026-06-11</h4>
+            <h4 data-toc-skip class="date">2026-06-10</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/cxy0714/HOIF/blob/HEAD/vignettes/hoif-vignette.Rmd" class="external-link"><code>vignettes/hoif-vignette.Rmd</code></a></small>
       <div class="d-none name"><code>hoif-vignette.Rmd</code></div>
@@ -153,7 +153,7 @@ supports orders up to 6)</li>
 <h3 id="u-statistics-formulation">U-Statistics Formulation<a class="anchor" aria-label="anchor" href="#u-statistics-formulation"></a>
 </h3>
 <p>The core computational building block is the U-statistic:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>𝕌</mi><mi>m</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>m</mi></msup><mfrac><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>n</mi><mo>−</mo><mi>m</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>!</mi></mrow><mrow><mi>n</mi><mi>!</mi></mrow></mfrac><munder><mo>∑</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>i</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>i</mi><mi>m</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>:</mo></mrow></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mrow><msub><mi>i</mi><mn>1</mn></msub><mo>≠</mo><mi>⋯</mi><mo>≠</mo><msub><mi>i</mi><mi>m</mi></msub></mrow></mtd></mtr></mtable></munder><msubsup><mi>r</mi><msub><mi>i</mi><mn>1</mn></msub><mi>a</mi></msubsup><munderover><mo>∏</mo><mrow><mi>s</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>m</mi><mo>−</mo><mn>1</mn></mrow></munderover><mo stretchy="false" form="prefix">{</mo><msubsup><mi>Z</mi><msub><mi>i</mi><mi>s</mi></msub><mi>⊤</mi></msubsup><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><msubsup><mi>s</mi><msub><mi>i</mi><mrow><mi>s</mi><mo>+</mo><mn>1</mn></mrow></msub><mi>a</mi></msubsup><msub><mi>Z</mi><msub><mi>i</mi><mrow><mi>s</mi><mo>+</mo><mn>1</mn></mrow></msub></msub><mo stretchy="false" form="postfix">}</mo><msubsup><mi>R</mi><msub><mi>i</mi><mi>m</mi></msub><mi>a</mi></msubsup></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>𝕌</mi><mi>m</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>m</mi></msup><mfrac><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>n</mi><mo>−</mo><mi>m</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>!</mi></mrow><mrow><mi>n</mi><mi>!</mi></mrow></mfrac><munder><mo>∑</mo><mtable><mtr><mtd columnalign="center" style="text-align: center"><mrow><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>i</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>i</mi><mi>m</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>:</mo></mrow></mtd></mtr><mtr><mtd columnalign="center" style="text-align: center"><mrow><msub><mi>i</mi><mn>1</mn></msub><mo>≠</mo><mi>⋯</mi><mo>≠</mo><msub><mi>i</mi><mi>m</mi></msub></mrow></mtd></mtr></mtable></munder><msubsup><mi>r</mi><msub><mi>i</mi><mn>1</mn></msub><mi>a</mi></msubsup><munderover><mo>∏</mo><mrow><mi>s</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>m</mi><mo>−</mo><mn>1</mn></mrow></munderover><mo stretchy="false" form="prefix">{</mo><msubsup><mi>Z</mi><msub><mi>i</mi><mi>s</mi></msub><mi>⊤</mi></msubsup><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><msubsup><mi>s</mi><msub><mi>i</mi><mrow><mi>s</mi><mo>+</mo><mn>1</mn></mrow></msub><mi>a</mi></msubsup><msub><mi>Z</mi><msub><mi>i</mi><mrow><mi>s</mi><mo>+</mo><mn>1</mn></mrow></msub></msub><mo stretchy="false" form="postfix">}</mo><msubsup><mi>R</mi><msub><mi>i</mi><mi>m</mi></msub><mi>a</mi></msubsup></mrow><annotation encoding="application/x-tex">
 \mathbb{U}^a_m(\hat{\Omega}^a) = (-1)^m \frac{(n-m)!}{n!} \sum_{\substack{(i_1, \ldots, i_m) : \\ i_1 \neq \cdots \neq i_m}} r^a_{i_1} \prod_{s=1}^{m-1} \{Z_{i_s}^\top \hat{\Omega}^a s^a_{i_{s+1}} Z_{i_{s+1}}\} R^a_{i_m}
 </annotation></semantics></math></p>
 <p>where:</p>
@@ -175,8 +175,10 @@ are the transformed covariates</li>
 is the inverse weighted Gram matrix</li>
 </ul>
 <p>The full algorithmic workflow, mathematical formulas, and all
-parameters are documented in the PDF shipped with the package:
-<code>system.file("extdoc", "HOIF.pdf", package = "HOIF")</code>.</p>
+parameters are documented in the PDF shipped with the package
+(<code>system.file("extdoc", "HOIF.pdf", package = "HOIF")</code>, also
+available <a href="https://github.com/cxy0714/HOIF/blob/master/inst/extdoc/HOIF.pdf" class="external-link">on
+GitHub</a>).</p>
 </div>
 <div class="section level3">
 <h3 id="sample-splitting">Sample Splitting<a class="anchor" aria-label="anchor" href="#sample-splitting"></a>
@@ -240,7 +242,7 @@ functions are fitted on one half of the data, and
 <span></span>
 <span><span class="co"># Development version from GitHub (also installs the ustats R package):</span></span>
 <span><span class="co"># install.packages("devtools")</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"cxy0714/HOIF"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/remotes/man/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"cxy0714/HOIF"</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="setting-up-the-python-backend">Setting up the Python backend<a class="anchor" aria-label="anchor" href="#setting-up-the-python-backend"></a>
 </h3>
@@ -268,7 +270,7 @@ environment (with <code>u-stats</code> installed via
 <code>pip install u-stats</code>) <strong>before</strong> Python
 initializes:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">reticulate</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/reticulate/reference/use_python.html" class="external-link">use_condaenv</a></span><span class="op">(</span><span class="st">"your_env_name"</span>, required <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu">reticulate</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/reticulate/man/use_python.html" class="external-link">use_condaenv</a></span><span class="op">(</span><span class="st">"your_env_name"</span>, required <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co"># or set the RETICULATE_PYTHON environment variable</span></span></code></pre></div>
 <p>See <code>vignette("ustats", package = "ustats")</code> for a
 complete installation guide and troubleshooting tips.</p>
@@ -284,13 +286,16 @@ to 6) and no Python runtime is required.</p>
 <div class="section level2">
 <h2 id="quick-start-example">Quick Start Example<a class="anchor" aria-label="anchor" href="#quick-start-example"></a>
 </h2>
-<p>Let’s demonstrate the recommended workflow with a simple simulated
-example, following the three-task structure described in the Sample
-Splitting section above: the nuisance functions are fitted on one half
-of the data (the <em>nuisance sample</em>), <code><a href="../reference/hoif_ate.html">hoif_ate()</a></code> is
-run on the other half (the <em>estimation sample</em>), and within the
-estimation sample we compute both the eHOIF and the sHOIF
-estimators.</p>
+<p>Let’s demonstrate the recommended workflow with a simulated example,
+following the three-task structure described in the Sample Splitting
+section above: the nuisance functions are fitted on one half of the data
+(the <em>nuisance sample</em>), <code><a href="../reference/hoif_ate.html">hoif_ate()</a></code> is run on the
+other half (the <em>estimation sample</em>), and within the estimation
+sample we compute both the eHOIF and the sHOIF estimators.</p>
+<p>To make the role of the HOIF correction visible, the nuisance models
+are <strong>deliberately misspecified</strong> (they use only 3 of the
+10 confounders), so the first-order AIPW estimator carries a clear bias
+— which the HOIF terms then estimate and remove.</p>
 <div class="section level3">
 <h3 id="generate-simulated-data">Generate Simulated Data<a class="anchor" aria-label="anchor" href="#generate-simulated-data"></a>
 </h3>
@@ -298,29 +303,35 @@ estimators.</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://cxy0714.github.io/HOIF/">HOIF</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">123</span><span class="op">)</span></span>
-<span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">500</span></span>
-<span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fl">2</span></span>
+<span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">2000</span></span>
+<span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fl">10</span></span>
 <span></span>
-<span><span class="co"># Generate covariates</span></span>
+<span><span class="co"># Covariates (all of them are confounders)</span></span>
 <span><span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span> <span class="op">*</span> <span class="va">p</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">p</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># True propensity score</span></span>
-<span><span class="va">true_pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="fl">0.5</span> <span class="op">*</span> <span class="va">X</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="fl">0.3</span> <span class="op">*</span> <span class="va">X</span><span class="op">[</span>,<span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co"># True propensity score and outcome regressions: linear, loading on</span></span>
+<span><span class="co"># ALL covariates</span></span>
+<span><span class="va">beta_pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="op">-</span><span class="fl">0.2</span>, <span class="fl">0.2</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.25</span>, <span class="fl">7</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">beta1</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>,  <span class="fl">0.4</span>, <span class="fl">0.3</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.4</span>, <span class="fl">7</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">beta0</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>,  <span class="fl">0.2</span>, <span class="fl">0.1</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">7</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Generate treatment</span></span>
+<span><span class="va">true_pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">beta_pi</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">A</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="va">true_pi</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># True outcome functions</span></span>
-<span><span class="va">mu1_true</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="va">X</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="fl">0.3</span> <span class="op">*</span> <span class="va">X</span><span class="op">[</span>,<span class="fl">2</span><span class="op">]</span><span class="op">^</span><span class="fl">2</span></span>
-<span><span class="va">mu0_true</span> <span class="op">&lt;-</span> <span class="fl">0.3</span> <span class="op">*</span> <span class="va">X</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="fl">0.2</span> <span class="op">*</span> <span class="va">X</span><span class="op">[</span>,<span class="fl">2</span><span class="op">]</span></span>
+<span><span class="va">mu1_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">+</span> <span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">beta1</span><span class="op">)</span></span>
+<span><span class="va">mu0_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">beta0</span><span class="op">)</span></span>
+<span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="va">A</span> <span class="op">*</span> <span class="va">mu1_true</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">A</span><span class="op">)</span> <span class="op">*</span> <span class="va">mu0_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">0</span>, <span class="fl">0.2</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Generate outcomes</span></span>
-<span><span class="va">Y</span> <span class="op">&lt;-</span> <span class="va">A</span> <span class="op">*</span> <span class="va">mu1_true</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">A</span><span class="op">)</span> <span class="op">*</span> <span class="va">mu0_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">0</span>, <span class="fl">0.5</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># True ATE</span></span>
-<span><span class="va">true_ate</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">mu1_true</span> <span class="op">-</span> <span class="va">mu0_true</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True ATE:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">true_ate</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; True ATE: 1.3124</span></span></code></pre></div>
+<span><span class="co"># True targets</span></span>
+<span><span class="va">psi1_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">mu1_true</span><span class="op">)</span></span>
+<span><span class="va">psi0_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">mu0_true</span><span class="op">)</span></span>
+<span><span class="va">true_ate</span>  <span class="op">&lt;-</span> <span class="va">psi1_true</span> <span class="op">-</span> <span class="va">psi0_true</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True E[Y(1)]:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">psi1_true</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; True E[Y(1)]: 0.9799</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True E[Y(0)]:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">psi0_true</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; True E[Y(0)]: -0.016</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True ATE:    "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">true_ate</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; True ATE:     0.9958</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="split-the-sample">Split the Sample<a class="anchor" aria-label="anchor" href="#split-the-sample"></a>
@@ -342,26 +353,54 @@ of the sample on which the HOIF estimator is computed.</p>
 <span><span class="va">Y_est</span> <span class="op">&lt;-</span> <span class="va">Y</span><span class="op">[</span><span class="va">idx_est</span><span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="estimate-nuisance-functions-on-the-nuisance-sample">Estimate Nuisance Functions on the Nuisance Sample<a class="anchor" aria-label="anchor" href="#estimate-nuisance-functions-on-the-nuisance-sample"></a>
+<h3 id="estimate-misspecified-nuisance-functions-on-the-nuisance-sample">Estimate (Misspecified) Nuisance Functions on the Nuisance
+Sample<a class="anchor" aria-label="anchor" href="#estimate-misspecified-nuisance-functions-on-the-nuisance-sample"></a>
 </h3>
 <p>The package <strong>only consumes the predicted values</strong> of
-the nuisance functions. Here we use simple (generalized) linear models;
-in practice, any flexible machine learning method can be used.</p>
+the nuisance functions; in practice, any flexible machine learning
+method can be used to produce them. Here, to mimic misspecification, the
+working models use <strong>only the first 3 covariates</strong> and
+ignore the remaining confounders:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Outcome regressions, fitted on the nuisance sample only</span></span>
-<span><span class="va">fit_mu1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">Y_nuis</span> <span class="op">~</span> <span class="va">X_nuis</span>, subset <span class="op">=</span> <span class="va">A_nuis</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">fit_mu0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">Y_nuis</span> <span class="op">~</span> <span class="va">X_nuis</span>, subset <span class="op">=</span> <span class="va">A_nuis</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">S</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>  <span class="co"># the working models ignore covariates 4..10</span></span>
+<span></span>
+<span><span class="co"># Outcome regressions, fitted on the nuisance sample only</span></span>
+<span><span class="va">fit_mu1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">Y_nuis</span> <span class="op">~</span> <span class="va">X_nuis</span><span class="op">[</span>, <span class="va">S</span><span class="op">]</span>, subset <span class="op">=</span> <span class="va">A_nuis</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">fit_mu0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">Y_nuis</span> <span class="op">~</span> <span class="va">X_nuis</span><span class="op">[</span>, <span class="va">S</span><span class="op">]</span>, subset <span class="op">=</span> <span class="va">A_nuis</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Propensity score, fitted on the nuisance sample only</span></span>
-<span><span class="va">fit_pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span><span class="va">A_nuis</span> <span class="op">~</span> <span class="va">X_nuis</span>, family <span class="op">=</span> <span class="va">binomial</span><span class="op">)</span></span>
+<span><span class="va">fit_pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/glm.html" class="external-link">glm</a></span><span class="op">(</span><span class="va">A_nuis</span> <span class="op">~</span> <span class="va">X_nuis</span><span class="op">[</span>, <span class="va">S</span><span class="op">]</span>, family <span class="op">=</span> <span class="va">binomial</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Predict all nuisance functions on the estimation sample</span></span>
-<span><span class="va">mu1_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">X_est</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mu1</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">mu0_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">X_est</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mu0</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">pi_hat</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">X_est</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_pi</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">mu1_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">X_est</span><span class="op">[</span>, <span class="va">S</span><span class="op">]</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mu1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">mu0_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">X_est</span><span class="op">[</span>, <span class="va">S</span><span class="op">]</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mu0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">pi_hat</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/vector.html" class="external-link">as.vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">X_est</span><span class="op">[</span>, <span class="va">S</span><span class="op">]</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_pi</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Ensure propensity scores are bounded away from 0 and 1</span></span>
 <span><span class="va">pi_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmax</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmin</a></span><span class="op">(</span><span class="va">pi_hat</span>, <span class="fl">0.95</span><span class="op">)</span>, <span class="fl">0.05</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="the-first-order-aipw-estimator-and-its-bias">The First-Order AIPW Estimator and its Bias<a class="anchor" aria-label="anchor" href="#the-first-order-aipw-estimator-and-its-bias"></a>
+</h3>
+<p>The HOIF terms estimate the <strong>estimable bias</strong> of the
+standard first-order doubly robust (AIPW/DML) estimator, so let us
+compute that estimator first, together with its actual error:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">psi1_aipw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">mu1_hat</span> <span class="op">+</span> <span class="va">A_est</span> <span class="op">/</span> <span class="va">pi_hat</span> <span class="op">*</span> <span class="op">(</span><span class="va">Y_est</span> <span class="op">-</span> <span class="va">mu1_hat</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">psi0_aipw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">mu0_hat</span> <span class="op">+</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">A_est</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">pi_hat</span><span class="op">)</span> <span class="op">*</span> <span class="op">(</span><span class="va">Y_est</span> <span class="op">-</span> <span class="va">mu0_hat</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">ate_aipw</span>  <span class="op">&lt;-</span> <span class="va">psi1_aipw</span> <span class="op">-</span> <span class="va">psi0_aipw</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"AIPW estimates: E[Y(1)] ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">psi1_aipw</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>    <span class="st">"  E[Y(0)] ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">psi0_aipw</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>    <span class="st">"  ATE ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ate_aipw</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; AIPW estimates: E[Y(1)] = 1.1749   E[Y(0)] = -0.2676   ATE = 1.4425</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"AIPW errors:    E[Y(1)] ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">psi1_aipw</span> <span class="op">-</span> <span class="va">psi1_true</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>    <span class="st">"  E[Y(0)] ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">psi0_aipw</span> <span class="op">-</span> <span class="va">psi0_true</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>    <span class="st">"  ATE ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ate_aipw</span> <span class="op">-</span> <span class="va">true_ate</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; AIPW errors:    E[Y(1)] = 0.195   E[Y(0)] = -0.2516   ATE = 0.4466</span></span></code></pre></div>
+<p>Because of the misspecified nuisance models, the AIPW estimator
+misses the true ATE by about 0.45 — a bias that no amount of data will
+remove. We now estimate this bias with HOIF.</p>
 </div>
 <div class="section level3">
 <h3 id="compute-the-ehoif-estimator-with-sample-splitting">Compute the eHOIF Estimator (with sample splitting)<a class="anchor" aria-label="anchor" href="#compute-the-ehoif-estimator-with-sample-splitting"></a>
@@ -369,7 +408,7 @@ in practice, any flexible machine learning method can be used.</p>
 <p>Within the estimation sample, <code><a href="../reference/hoif_ate.html">hoif_ate()</a></code> cross-fits the
 inverse weighted Gram matrix against the U-statistics over
 <code>n_folds</code> folds:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results_ehoif</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>,</span>
 <span>  A <span class="op">=</span> <span class="va">A_est</span>,</span>
@@ -390,23 +429,24 @@ inverse weighted Gram matrix against the U-statistics over
 <span><span class="co">#&gt; HOIF Estimators for Average Treatment Effect</span></span>
 <span><span class="co">#&gt; =============================================</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Estimates by order:</span></span>
-<span><span class="co">#&gt;   Order     ATE  HOIF1  HOIF0</span></span>
-<span><span class="co">#&gt; 1     2 -0.0073 0.0093 0.0167</span></span>
-<span><span class="co">#&gt; 2     3 -0.0162 0.0013 0.0175</span></span>
-<span><span class="co">#&gt; 3     4 -0.0156 0.0034 0.0190</span></span>
-<span><span class="co">#&gt; 4     5 -0.0155 0.0030 0.0185</span></span>
-<span><span class="co">#&gt; 5     6 -0.0157 0.0026 0.0183</span></span>
-<span><span class="co">#&gt; 6     7 -0.0156 0.0027 0.0183</span></span>
+<span><span class="co">#&gt; Higher-order correction terms by order:</span></span>
+<span><span class="co">#&gt;   Order     ATE   HOIF1  HOIF0</span></span>
+<span><span class="co">#&gt; 1     2 -0.4621 -0.2615 0.2006</span></span>
+<span><span class="co">#&gt; 2     3 -0.4050 -0.2341 0.1709</span></span>
+<span><span class="co">#&gt; 3     4 -0.4335 -0.2480 0.1855</span></span>
+<span><span class="co">#&gt; 4     5 -0.4272 -0.2443 0.1829</span></span>
+<span><span class="co">#&gt; 5     6 -0.4289 -0.2456 0.1833</span></span>
+<span><span class="co">#&gt; 6     7 -0.4293 -0.2455 0.1838</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Final ATE estimate (highest order): -0.0156</span></span></code></pre></div>
+<span><span class="co">#&gt; Estimated AIPW bias correction for the ATE (highest order): -0.4293</span></span>
+<span><span class="co">#&gt; (add this value to the first-order AIPW/DR estimate of the ATE to debias it)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="compute-the-shoif-estimator-without-sample-splitting">Compute the sHOIF Estimator (without sample splitting)<a class="anchor" aria-label="anchor" href="#compute-the-shoif-estimator-without-sample-splitting"></a>
 </h3>
 <p>Still using the independent nuisance predictions from above; only the
 split between the Gram matrix and the U-statistics is dropped:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results_shoif</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>,</span>
 <span>  A <span class="op">=</span> <span class="va">A_est</span>,</span>
@@ -425,28 +465,66 @@ split between the Gram matrix and the U-statistics is dropped:</p>
 <span><span class="co">#&gt; HOIF Estimators for Average Treatment Effect</span></span>
 <span><span class="co">#&gt; =============================================</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Estimates by order:</span></span>
+<span><span class="co">#&gt; Higher-order correction terms by order:</span></span>
 <span><span class="co">#&gt;   Order     ATE   HOIF1  HOIF0</span></span>
-<span><span class="co">#&gt; 1     2 -0.0180 -0.0026 0.0154</span></span>
-<span><span class="co">#&gt; 2     3 -0.0187 -0.0026 0.0160</span></span>
-<span><span class="co">#&gt; 3     4 -0.0183 -0.0026 0.0157</span></span>
-<span><span class="co">#&gt; 4     5 -0.0183 -0.0026 0.0157</span></span>
-<span><span class="co">#&gt; 5     6 -0.0183 -0.0026 0.0157</span></span>
-<span><span class="co">#&gt; 6     7 -0.0183 -0.0026 0.0157</span></span>
+<span><span class="co">#&gt; 1     2 -0.4318 -0.2496 0.1821</span></span>
+<span><span class="co">#&gt; 2     3 -0.4458 -0.2568 0.1890</span></span>
+<span><span class="co">#&gt; 3     4 -0.4373 -0.2520 0.1853</span></span>
+<span><span class="co">#&gt; 4     5 -0.4362 -0.2515 0.1848</span></span>
+<span><span class="co">#&gt; 5     6 -0.4366 -0.2517 0.1849</span></span>
+<span><span class="co">#&gt; 6     7 -0.4367 -0.2517 0.1849</span></span>
 <span><span class="co">#&gt;</span></span>
-<span><span class="co">#&gt; Final ATE estimate (highest order): -0.0183</span></span></code></pre></div>
-<p>Note that the reported <code>ATE</code> values are the higher-order
-influence function terms of orders 2 to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>:
-they estimate the <strong>estimable bias</strong> of the standard
-first-order doubly robust (AIPW/DML) estimator and are used to debias
-it. They are <em>not</em> by themselves the full ATE point estimate
-(compare with the true ATE of 1.3124 above).</p>
+<span><span class="co">#&gt; Estimated AIPW bias correction for the ATE (highest order): -0.4367</span></span>
+<span><span class="co">#&gt; (add this value to the first-order AIPW/DR estimate of the ATE to debias it)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="debias-the-aipw-estimator">Debias the AIPW Estimator<a class="anchor" aria-label="anchor" href="#debias-the-aipw-estimator"></a>
+</h3>
+<p>The reported <code>HOIF1</code>/<code>HOIF0</code>/<code>ATE</code>
+values are the higher-order influence function terms of orders 2 to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>
+— they are <em>not</em> by themselves point estimates of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><mi>Y</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">E[Y(1)]</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><mi>Y</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">E[Y(0)]</annotation></semantics></math>
+or the ATE. They estimate the estimable bias of the AIPW estimator, with
+the sign convention that <strong>adding</strong> them to the AIPW
+estimates removes it:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">psi1_ehoif</span> <span class="op">&lt;-</span> <span class="va">psi1_aipw</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">results_ehoif</span><span class="op">$</span><span class="va">HOIF1</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">psi0_ehoif</span> <span class="op">&lt;-</span> <span class="va">psi0_aipw</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">results_ehoif</span><span class="op">$</span><span class="va">HOIF0</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">psi1_shoif</span> <span class="op">&lt;-</span> <span class="va">psi1_aipw</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">results_shoif</span><span class="op">$</span><span class="va">HOIF1</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">psi0_shoif</span> <span class="op">&lt;-</span> <span class="va">psi0_aipw</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">results_shoif</span><span class="op">$</span><span class="va">HOIF0</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  row.names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"E[Y(1)]"</span>, <span class="st">"E[Y(0)]"</span>, <span class="st">"ATE"</span><span class="op">)</span>,</span>
+<span>  Truth <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">psi1_true</span>, <span class="va">psi0_true</span>, <span class="va">true_ate</span><span class="op">)</span>,</span>
+<span>  AIPW  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">psi1_aipw</span>, <span class="va">psi0_aipw</span>, <span class="va">ate_aipw</span><span class="op">)</span>,</span>
+<span>  eHOIF <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">psi1_ehoif</span>, <span class="va">psi0_ehoif</span>, <span class="va">psi1_ehoif</span> <span class="op">-</span> <span class="va">psi0_ehoif</span><span class="op">)</span>,</span>
+<span>  sHOIF <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">psi1_shoif</span>, <span class="va">psi0_shoif</span>, <span class="va">psi1_shoif</span> <span class="op">-</span> <span class="va">psi0_shoif</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;           Truth    AIPW   eHOIF   sHOIF</span></span>
+<span><span class="co">#&gt; E[Y(1)]  0.9799  1.1749  0.9294  0.9232</span></span>
+<span><span class="co">#&gt; E[Y(0)] -0.0160 -0.2676 -0.0838 -0.0826</span></span>
+<span><span class="co">#&gt; ATE      0.9958  1.4425  1.0132  1.0058</span></span>
+<span></span>
+<span><span class="co"># Errors relative to the truth</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sweep.html" class="external-link">sweep</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">[</span>, <span class="op">-</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">1</span>, <span class="va">comparison</span><span class="op">$</span><span class="va">Truth</span>, <span class="st">"-"</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;            AIPW   eHOIF   sHOIF</span></span>
+<span><span class="co">#&gt; E[Y(1)]  0.1950 -0.0505 -0.0567</span></span>
+<span><span class="co">#&gt; E[Y(0)] -0.2516 -0.0678 -0.0666</span></span>
+<span><span class="co">#&gt; ATE      0.4466  0.0174  0.0100</span></span></code></pre></div>
+<p>The HOIF correction removes essentially all of the AIPW bias for the
+ATE (error
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0.4466</mn><mo>→</mo></mrow><annotation encoding="application/x-tex">0.4466 \rightarrow</annotation></semantics></math>
+about
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.01</mn><annotation encoding="application/x-tex">0.01</annotation></semantics></math>)
+and the bulk of it for each treatment arm.</p>
 </div>
 <div class="section level3">
 <h3 id="visualize-convergence">Visualize Convergence<a class="anchor" aria-label="anchor" href="#visualize-convergence"></a>
 </h3>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">results_ehoif</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
@@ -550,7 +628,7 @@ function terms</li>
 <h3 id="using-basis-expansion">Using Basis Expansion<a class="anchor" aria-label="anchor" href="#using-basis-expansion"></a>
 </h3>
 <p>For more flexible modeling of covariate relationships:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># B-splines basis</span></span>
 <span><span class="va">results_splines</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>, A <span class="op">=</span> <span class="va">A_est</span>, Y <span class="op">=</span> <span class="va">Y_est</span>,</span>
@@ -580,7 +658,7 @@ function terms</li>
 against the computation of the U-statistics — the eHOIF estimator (see
 the Sample Splitting section under Mathematical Background for what
 exactly is split):</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results_cf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>, A <span class="op">=</span> <span class="va">A_est</span>, Y <span class="op">=</span> <span class="va">Y_est</span>,</span>
 <span>  mu1 <span class="op">=</span> <span class="va">mu1_hat</span>, mu0 <span class="op">=</span> <span class="va">mu0_hat</span>, pi <span class="op">=</span> <span class="va">pi_hat</span>,</span>
@@ -596,7 +674,7 @@ exactly is split):</p>
 </h3>
 <p>For high-dimensional settings or when facing numerical
 instability:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Nonlinear shrinkage</span></span>
 <span><span class="va">results_nlshrink</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>, A <span class="op">=</span> <span class="va">A_est</span>, Y <span class="op">=</span> <span class="va">Y_est</span>,</span>
@@ -618,7 +696,7 @@ instability:</p>
 </h3>
 <p>If the Python environment is not available or for smaller
 problems:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results_pure_r</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>, A <span class="op">=</span> <span class="va">A_est</span>, Y <span class="op">=</span> <span class="va">Y_est</span>,</span>
 <span>  mu1 <span class="op">=</span> <span class="va">mu1_hat</span>, mu0 <span class="op">=</span> <span class="va">mu0_hat</span>, pi <span class="op">=</span> <span class="va">pi_hat</span>,</span>
@@ -760,11 +838,11 @@ Quick Start example).</p>
 <h3 id="python-backend-issues">Python Backend Issues<a class="anchor" aria-label="anchor" href="#python-backend-issues"></a>
 </h3>
 <p>Verify the Python environment used by <code>ustats</code>:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">ustats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/ustats/man/check_ustats_setup.html" class="external-link">check_ustats_setup</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p>If the environment cannot be repaired easily, switch to the pure R
 implementation:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>, A <span class="op">=</span> <span class="va">A_est</span>, Y <span class="op">=</span> <span class="va">Y_est</span>,</span>
 <span>  mu1 <span class="op">=</span> <span class="va">mu1_hat</span>, mu0 <span class="op">=</span> <span class="va">mu0_hat</span>, pi <span class="op">=</span> <span class="va">pi_hat</span>,</span>
@@ -776,7 +854,7 @@ implementation:</p>
 <h3 id="numerical-instability">Numerical Instability<a class="anchor" aria-label="anchor" href="#numerical-instability"></a>
 </h3>
 <p>If you see warnings about matrix inversion:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Try shrinkage methods</span></span>
 <span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/hoif_ate.html">hoif_ate</a></span><span class="op">(</span></span>
 <span>  X <span class="op">=</span> <span class="va">X_est</span>, A <span class="op">=</span> <span class="va">A_est</span>, Y <span class="op">=</span> <span class="va">Y_est</span>,</span>
@@ -788,7 +866,7 @@ implementation:</p>
 <h3 id="extreme-propensity-scores">Extreme Propensity Scores<a class="anchor" aria-label="anchor" href="#extreme-propensity-scores"></a>
 </h3>
 <p>Always trim propensity scores to avoid numerical issues:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Trim to [0.05, 0.95]</span></span>
 <span><span class="va">pi_hat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmax</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">pmin</a></span><span class="op">(</span><span class="va">pi_hat</span>, <span class="fl">0.95</span><span class="op">)</span>, <span class="fl">0.05</span><span class="op">)</span></span></code></pre></div>
 </div>
