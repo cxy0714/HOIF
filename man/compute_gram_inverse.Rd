@@ -11,11 +11,22 @@ compute_gram_inverse(Z, A, method = "direct")
 
 \item{A}{Treatment vector}
 
-\item{method}{Character: "direct", "nlshrink", or "corpcor"}
+\item{method}{Character: "direct" (Cholesky-based inversion, falling back
+to the Moore-Penrose inverse from \pkg{MASS} if the Gram matrix is not
+positive definite), "nlshrink" (nonlinear shrinkage), or "corpcor"
+(pseudoinverse via \pkg{corpcor})}
 }
 \value{
 List with Omega1 and Omega0 (inverse Gram matrices)
 }
 \description{
 Compute inverse of weighted Gram matrix
+}
+\examples{
+n <- 100
+Z <- cbind(1, matrix(rnorm(n * 2), n, 2))
+A <- rbinom(n, 1, 0.5)
+Omega <- compute_gram_inverse(Z, A)
+str(Omega)
+
 }

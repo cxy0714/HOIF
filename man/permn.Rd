@@ -17,7 +17,7 @@ Internal recursive helper used by \code{generate_permutations()} to enumerate
 all permutations of a vector.
 }
 \details{
-⚠️ Extremely computationally expensive for vectors longer than ~8 elements.
+**Warning:** Extremely computationally expensive for vectors longer than ~8 elements.
 Only intended for internal brute-force validation code.
 }
 \keyword{internal}

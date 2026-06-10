@@ -11,6 +11,10 @@
 
 \item{...}{Additional arguments (unused)}
 }
+\value{
+The input object \code{x}, invisibly. Called for its side
+  effect of printing a summary of the estimates to the console.
+}
 \description{
 Print method for hoif_ate objects
 }

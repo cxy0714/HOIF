@@ -1,5 +1,7 @@
 test_that("HOIF with sample splitting matches brute-force implementation", {
 
+  skip_if_no_ustats()
+
   set.seed(42)
 
   n <- 14
@@ -45,6 +47,8 @@ test_that("HOIF with sample splitting matches brute-force implementation", {
   expect_equal(results_split$HOIF0, HOIF_test_split$HOIF_0_m, tolerance = 1e-8)
 })
 test_that("HOIF without sample splitting matches brute-force implementation", {
+
+  skip_if_no_ustats()
 
   set.seed(42)
 

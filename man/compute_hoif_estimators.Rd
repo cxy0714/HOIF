@@ -9,7 +9,8 @@ compute_hoif_estimators(
   B_matrices,
   m = 7,
   backend = "torch",
-  pure_R_code = FALSE
+  pure_R_code = FALSE,
+  dtype = NULL
 )
 }
 \arguments{
@@ -19,17 +20,44 @@ compute_hoif_estimators(
 
 \item{m}{Integer. The maximum order of the HOIF estimator.}
 
-\item{backend}{Character. The computation backend for the `ustat` package;
-either "torch" (default) or "numpy".}
+\item{backend}{Character. The computation backend used by
+\code{\link[ustats]{ustat}}; either "torch" (default) or "numpy".
+If PyTorch is not available, 'ustats' falls back to "numpy" with
+a warning.}
 
 \item{pure_R_code}{Logical. Whether to use a native R implementation.
-This serves as a fallback when the `reticulate` environment (Python)
-encounters configuration issues. Note: The pure R implementation
-only supports up to the 6th order ($m = 6$).}
+This serves as a fallback when the Python environment used by
+'ustats' (via 'reticulate') is not available. Note: The pure R
+implementation only supports up to the 6th order (m = 6).}
+
+\item{dtype}{Optional character string passed to
+\code{\link[ustats]{ustat}} controlling the numeric precision of
+the Python backend: "float32" or "float64". The default
+\code{NULL} selects the precision automatically (float32 on a
+CUDA GPU, float64 otherwise). Ignored when \code{pure_R_code = TRUE}.}
 }
 \value{
-A list of HOIF estimators (ATE, HOIF, IIFF) for orders $l = 2, \dots, m$.
+A list of HOIF estimators (ATE, HOIF, IIFF) for orders l = 2, ..., m.
 }
 \description{
 Compute HOIF Estimators for ATE
+}
+\examples{
+# Pure R example (no Python required), up to order 6
+n <- 100
+Z <- cbind(1, rnorm(n))
+A <- rbinom(n, 1, 0.5)
+Y <- A + Z[, 2] + rnorm(n)
+residuals <- compute_residuals(A, Y, mu1 = 1 + Z[, 2], mu0 = Z[, 2],
+                               pi = rep(0.5, n))
+Omega <- compute_gram_inverse(Z, A)
+B <- compute_basis_matrix(Z, A, Omega$Omega1, Omega$Omega0)
+est <- compute_hoif_estimators(residuals, B, m = 6, pure_R_code = TRUE)
+est$ATE
+
+\dontrun{
+# Python backend (requires the 'ustats' Python dependencies), any order
+est <- compute_hoif_estimators(residuals, B, m = 7, backend = "torch")
+}
+
 }

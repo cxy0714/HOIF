@@ -1,10 +1,15 @@
 ^test$
 ^test/
-test_mannual/
+^test_manual$
 ^\.gitignore$
 ^README\.md$
 ^LICENSE\.md$
 ^\.Rproj\.user$
 ^.*\.Rproj$
+^\.github$
+^docs$
+^inst/typst$
+^cran-comments\.md$
+^CRAN-SUBMISSION$
 ^doc$
 ^Meta$

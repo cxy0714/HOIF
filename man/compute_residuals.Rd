@@ -23,3 +23,12 @@ List with R1, r1, R0, r0
 \description{
 Compute residuals for both treatment groups
 }
+\examples{
+n <- 100
+A <- rbinom(n, 1, 0.5)
+Y <- rnorm(n)
+res <- compute_residuals(A, Y, mu1 = rep(0.5, n), mu0 = rep(-0.5, n),
+                         pi = rep(0.5, n))
+str(res)
+
+}

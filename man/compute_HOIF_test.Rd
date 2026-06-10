@@ -14,11 +14,11 @@ compute_HOIF_test(
   m,
   sample_splitting = 0,
   n_folds = 2,
-  seed
+  seed = 42
 )
 }
 \arguments{
-\item{X}{Covariate matrix (n × p).}
+\item{X}{Covariate matrix (n x p).}
 
 \item{A}{Binary treatment indicator vector.}
 
@@ -50,7 +50,7 @@ Computes the order-\code{m} higher-order influence function (HOIF) term
 using an explicit enumeration of all ordered index tuples.
 }
 \details{
-🚨 **This implementation is intentionally naive and is provided solely
+**This implementation is intentionally naive and is provided solely
 for validation and debugging purposes.** It should only be used on very
 small datasets to verify the correctness of optimized implementations.
 
