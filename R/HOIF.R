@@ -647,7 +647,7 @@ print.hoif_ate <- function(x, ...) {
   cat("HOIF Estimators for Average Treatment Effect\n")
   cat("=============================================\n\n")
 
-  cat("Estimates by order:\n")
+  cat("Higher-order correction terms by order:\n")
   print(data.frame(
     Order = x$orders,
     ATE = round(x$ATE, 4),
@@ -655,7 +655,10 @@ print.hoif_ate <- function(x, ...) {
     HOIF0 = round(x$HOIF0, 4)
   ))
 
-  cat("\nFinal ATE estimate (highest order):", round(tail(x$ATE, 1), 4), "\n")
+  cat("\nEstimated AIPW bias correction for the ATE (highest order):",
+      round(tail(x$ATE, 1), 4), "\n")
+  cat("(add this value to the first-order AIPW/DR estimate of the ATE",
+      "to debias it)\n")
   invisible(x)
 }
 
@@ -673,7 +676,7 @@ print.hoif_ate <- function(x, ...) {
 #' @export
 plot.hoif_ate <- function(x, ...) {
   plot(x$orders, x$ATE, type = "b", pch = 19,
-       xlab = "Order", ylab = "ATE Estimate",
+       xlab = "Order", ylab = "AIPW bias correction for the ATE",
        main = "Convergence of HOIF-ATE Estimator",
        ...)
   abline(h = tail(x$ATE, 1), lty = 2, col = "red")

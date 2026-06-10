@@ -323,7 +323,7 @@ print(results_ehoif)
 #> HOIF Estimators for Average Treatment Effect
 #> =============================================
 #>
-#> Estimates by order:
+#> Higher-order correction terms by order:
 #>   Order     ATE   HOIF1  HOIF0
 #> 1     2 -0.4621 -0.2615 0.2006
 #> 2     3 -0.4050 -0.2341 0.1709
@@ -332,7 +332,8 @@ print(results_ehoif)
 #> 5     6 -0.4289 -0.2456 0.1833
 #> 6     7 -0.4293 -0.2455 0.1838
 #>
-#> Final ATE estimate (highest order): -0.4293
+#> Estimated AIPW bias correction for the ATE (highest order): -0.4293
+#> (add this value to the first-order AIPW/DR estimate of the ATE to debias it)
 ```
 
 ## Compute the sHOIF Estimator (without sample splitting)
@@ -359,7 +360,7 @@ print(results_shoif)
 #> HOIF Estimators for Average Treatment Effect
 #> =============================================
 #>
-#> Estimates by order:
+#> Higher-order correction terms by order:
 #>   Order     ATE   HOIF1  HOIF0
 #> 1     2 -0.4318 -0.2496 0.1821
 #> 2     3 -0.4458 -0.2568 0.1890
@@ -368,7 +369,8 @@ print(results_shoif)
 #> 5     6 -0.4366 -0.2517 0.1849
 #> 6     7 -0.4367 -0.2517 0.1849
 #>
-#> Final ATE estimate (highest order): -0.4367
+#> Estimated AIPW bias correction for the ATE (highest order): -0.4367
+#> (add this value to the first-order AIPW/DR estimate of the ATE to debias it)
 ```
 
 ## Debias the AIPW Estimator
