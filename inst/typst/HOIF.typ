@@ -33,7 +33,7 @@
 #outline()
 
 
-#let ustat_url = "https://github.com/your-repo/ustat"
+#let ustat_url = "https://github.com/cxy0714/U-Statistics-R"
 #let ustat = link(ustat_url)[#math.upright("ustat")]
 
 = Input data
@@ -47,9 +47,15 @@ We assume the availability of pre-computed nuisance function estimators: the con
 
 The core function `hoif_ate()` in this `R` package is to compute the below estimators.
 
-$bb("ATE")_m ( hat(Omega)^a)$ is the $m$-th order higher order influence function(HOIF) estimator for the estimable bias of double robust estimator/ double machine learning/AIPW estimator of average treatment effect (ATE) in causal inference developed by a series works of by James M. Robins and his collaborators @Robins2008_HOIF @Robins2017_Minimax, @liu2017semiparametric, @LiuLi2023_sHOIF
+Let $hat(psi)^("AIPW")_a$ denote the standard first-order doubly robust / double machine learning / AIPW estimator of $psi_a = bb(E)[Y(a)]$, and $hat("ATE")^("AIPW") = hat(psi)^("AIPW")_1 - hat(psi)^("AIPW")_0$. Conditional on the estimated nuisance functions, this estimator is biased.
+
+$bb("BC")^("ATE")_m$ is the $m$-th order higher order influence function (HOIF) estimator of the *estimable bias* of the AIPW estimator of the average treatment effect (ATE) in causal inference, developed in a series of works by James M. Robins and his collaborators @Robins2008_HOIF @Robins2017_Minimax, @liu2017semiparametric, @LiuLi2023_sHOIF. It is *not* itself an estimator of the ATE; the sign convention is such that adding it to the AIPW estimate removes the estimable bias:
 $
-  bb("ATE")_m ( hat(Omega)^a) & = bb("HOIF")^1_m - bb("HOIF")^0_m \
+  hat("ATE")_m & = hat("ATE")^("AIPW") + bb("BC")^("ATE")_m \
+$
+(In the output of `hoif_ate()`, the components `HOIF1`, `HOIF0` and `ATE` correspond to $bb("HOIF")^1_m$, $bb("HOIF")^0_m$ and $bb("BC")^("ATE")_m$; the component name `ATE` is kept for backward compatibility -- it holds the ATE *bias correction*, not the ATE itself.)
+$
+  bb("BC")^("ATE")_m & = bb("HOIF")^1_m ( hat(Omega)^1) - bb("HOIF")^0_m ( hat(Omega)^0) \
   bb("HOIF")^a_m ( hat(Omega)^a) & = sum_(j=2)^m bb("IF")^a_j ( hat(Omega)^a) \
   bb("IF")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in I_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) -(hat(Omega)^a)^(-1) ) hat(Omega)^a} s^a_(i_m) Z_(i_m) R^a_(i_m) \
   & = sum_(j=2)^(m) binom(m-2, m-j) bb("U")^a_j ( hat(Omega)^a) \
@@ -61,10 +67,9 @@ Where
 $
   I_1 "and" I_2 & "construct a partition of the index set" {1,2,dots,n} \
               a & in {0,1}, \
-        s^a_(i) & = A^a (1-A)^(1-a), \
-        r^a_(i) & = 1 - s^a / ((hat(pi)(X_i))^a (1 - hat(pi)(X_i))^(1-a)), \
+        s^a_(i) & = A_i^a (1-A_i)^(1-a), \
+        r^a_(i) & = 1 - s^a_(i) / ((hat(pi)(X_i))^a (1 - hat(pi)(X_i))^(1-a)), \
         R^a_(i) & = Y_i - hat(mu)(a,X_i), \
-        s^a_(i) & = A^a (1-A)^(1-a), \
             Z_i & = serif("transform")(X_i), \
    hat(Omega)^a & = (1/(|I_2|) sum_(i in I_2) s^a_(i) Z_i Z_i^(top))^(-1), \
 $
@@ -94,20 +99,20 @@ The whole function combines all the following steps to get the HOIF estiamtors f
 
 2. **Branching Logic**:
   - *If not using sample splitting*:
-    Proceed with the entire dataset using the steps described in the following sections. Output $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$ and $a in {0,1}$.
+    Proceed with the entire dataset using the steps described in the following sections. Output $("BC"^("ATE")_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$ and $a in {0,1}$ (returned by the package as `ATE`, `HOIF1`/`HOIF0`, `IIFF1`/`IIFF0`).
   - *If using sample splitting (Cross-fitting)*:
     a. Split the indices ${1, dots, n}$ into $K$ disjoint parts $(I_1, I_2, dots, I_K)$.
     b. **For each fold** $j = 1, dots, K$:
     - **Training**: Use data with indices not in $I_j$ ($i in.not I_j$) to compute the inverse Gram matrices $(Omega_(1,j), Omega_(0,j))$.
     - **Estimation**: Use data with indices in $I_j$ ($i in I_j$) and the pre-computed $(Omega_(1,j), Omega_(0,j))$ to compute:
       - Local projection matrices $(B_(1,j), B_(0,j))$.
-      - Local HOIF estimators $("ATE"_(l,j), "HOIF"_(l,j)^a, "IIFF"_(l,j)^a)$ for $l = 2, dots, m$.
+      - Local HOIF bias-correction terms $("BC"^("ATE")_(l,j), "HOIF"_(l,j)^a, "IIFF"_(l,j)^a)$ for $l = 2, dots, m$.
     c. **Aggregation**: Average the results across all $K$ folds:
     $
-      "ATE"_l = 1/K sum_(j=1)^(K) "ATE"_(l,j), quad "HOIF"_l^a = 1/K sum_(j=1)^(K) "HOIF"_(l,j)^a, quad "IIFF"_l^a = 1/K sum_(j=1)^(K) "IIFF"_(l,j)^a
+      "BC"^("ATE")_l = 1/K sum_(j=1)^(K) "BC"^("ATE")_(l,j), quad "HOIF"_l^a = 1/K sum_(j=1)^(K) "HOIF"_(l,j)^a, quad "IIFF"_l^a = 1/K sum_(j=1)^(K) "IIFF"_(l,j)^a
     $
 
-*Output:* Final averaged estimators $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$.
+*Output:* Final averaged bias-correction terms $("BC"^("ATE")_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$.
 
 = Step-by-Step Technical Notes
 
@@ -126,15 +131,17 @@ Next, we compute two pairs of residuals, indexed by the treatment assignment $a 
 
 For the treatment group ($a = 1$):
 $
-  R_i^1 & = A_i (Y_i - hat(mu)(1,X_i)) \
+  R_i^1 & = Y_i - hat(mu)(1,X_i) \
   r_i^1 & = 1 - A_i / hat(pi)(X_i)
 $
 
 For the control group ($a = 0$):
 $
-  R_i^0 & = (1 - A_i) (Y_i - hat(mu)(0,X_i)) \
+  R_i^0 & = Y_i - hat(mu)(0,X_i) \
   r_i^0 & = 1 - (1 - A_i) / (1 - hat(pi)(X_i))
 $
+
+(The treatment indicator $s^a_i$ is *not* folded into $R^a_i$ here; it enters through the projection matrix $B^a$ below, matching the implementation.)
 
 *Function Requirement:*
 - *Input*: Observed data $(A, Y)$ and estimated nuisance functions $(hat(mu)(1,X), hat(mu)(0,X), hat(pi)(X))$.
@@ -156,8 +163,8 @@ Several estimation methods can be employed for $Omega_a$, such as direct inversi
 == Compute the Projection Matrix
 
 Compute the projection-like basis matrix $B^a$ for each $a in {0,1}$:
-$ B^a = Z Omega_a Z^T, $
-where $Z in bb(R)^(n times k)$ is the matrix of basis functions. Note that $B^a$ is an $n times n$ matrix.
+$ B^a = Z Omega_a (s^a dot.circle Z)^T, quad "i.e." quad B^a_(i j) = Z_i^top Omega_a s^a_j Z_j, $
+where $Z in bb(R)^(n times k)$ is the matrix of basis functions and $s^a dot.circle Z$ multiplies row $j$ of $Z$ by $s^a_j$ (in code: `B1 = Z %*% Omega1 %*% t(Z * A)`). Note that $B^a$ is an $n times n$ matrix carrying the treatment indicator on its second index.
 
 *Function Requirement:*
 - *Input*: Basis matrix $Z$ and the inverse matrices $(Omega_1, Omega_0)$.
@@ -181,17 +188,18 @@ Finally, we compute the HOIF estimators for the ATE.
 
   The tensors $T_j^a$ and index expressions $E_j^a$ are defined as:
   $
-    T_j^a & = ( R^a, underbrace(B^a, j-1 " times"), r^a ) \
+    T_j^a & = ( r^a, underbrace(B^a, j-1 " times"), R^a ) \
     E_j^a & = ( 1, (1,2), dots, (j-1, j), j )
   $
+  so that the first tensor $r^a$ is indexed by $i_1$ and the last tensor $R^a$ by $i_j$, matching the target formula.
 
   Then, for each order $l in {2, dots, m}$, compute:
 $
   "IIFF"_l^a & = sum_(j=2)^(l) binom(l-2, l-j) "U"_j^(a) \
   "HOIF"_l^a & = sum_(j=2)^(l) "IIFF"_j^a \
-     "ATE"_l & = "HOIF"_l^1 - "HOIF"_l^0
+     "BC"^("ATE")_l & = "HOIF"_l^1 - "HOIF"_l^0
 $
-- *Output*: $("ATE"_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$.
+- *Output*: $("BC"^("ATE")_l, "HOIF"_l^a, "IIFF"_l^a)$ for $l = 2, dots, m$, returned by the package as `ATE`, `HOIF1`/`HOIF0` and `IIFF1`/`IIFF0`.
 
 
 

@@ -60,17 +60,40 @@ The computation of the higher-order U-statistics that arise in HOIF estimators i
 
 ## The HOIF Framework
 
-The HOIF estimator for ATE is defined as:
+Let $\widehat{\psi}_a^{\mathrm{AIPW}}$ denote the standard first-order doubly
+robust (AIPW/DML) estimator of $\psi_a = E[Y(a)]$, and
+$\widehat{\mathrm{ATE}}^{\mathrm{AIPW}} = \widehat{\psi}_1^{\mathrm{AIPW}} -
+\widehat{\psi}_0^{\mathrm{AIPW}}$. Conditional on the estimated nuisance
+functions, this estimator is biased; HOIF estimates the *estimable part* of
+that bias.
+
+For each treatment arm $a \in \{0,1\}$, the $m$-th order HOIF
+**bias-correction term** is
 
 $$
-\mathbb{ATE}_m(\hat{\Omega}^a) = \mathbb{HOIF}^1_m - \mathbb{HOIF}^0_m
+\mathbb{HOIF}^a_m(\hat{\Omega}^a) = \sum_{j=2}^m \mathbb{IF}^a_j(\hat{\Omega}^a) = \sum_{i=2}^m \sum_{j=2}^{i} \binom{i-2}{i-j} \mathbb{U}^a_j(\hat{\Omega}^a),
 $$
 
-where for each treatment arm $a \in \{0,1\}$:
+and the corresponding correction for the ATE is their difference:
 
 $$
-\mathbb{HOIF}^a_m(\hat{\Omega}^a) = \sum_{j=2}^m \mathbb{IF}^a_j(\hat{\Omega}^a) = \sum_{i=2}^m \sum_{j=2}^{i} \binom{i-2}{i-j} \mathbb{U}^a_j(\hat{\Omega}^a)
+\mathbb{BC}^{\mathrm{ATE}}_m = \mathbb{HOIF}^1_m(\hat{\Omega}^1) - \mathbb{HOIF}^0_m(\hat{\Omega}^0).
 $$
+
+$\mathbb{BC}^{\mathrm{ATE}}_m$ is the $m$-th order HOIF estimator of the
+estimable bias of the AIPW estimator of the ATE — it is **not** itself an
+estimator of the ATE. The sign convention is such that *adding* it to the
+AIPW estimate removes that bias:
+
+$$
+\widehat{\mathrm{ATE}}_m = \widehat{\mathrm{ATE}}^{\mathrm{AIPW}} + \mathbb{BC}^{\mathrm{ATE}}_m .
+$$
+
+In the output of `hoif_ate()`, the components `HOIF1`, `HOIF0` and `ATE`
+correspond to $\mathbb{HOIF}^1_m$, $\mathbb{HOIF}^0_m$ and
+$\mathbb{BC}^{\mathrm{ATE}}_m$ for $m = 2, \ldots$ (the component name `ATE`
+is kept for backward compatibility — it holds the ATE *bias correction*, not
+the ATE itself).
 
 ## U-Statistics Formulation
 
