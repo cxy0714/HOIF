@@ -40,7 +40,7 @@
 
 Let the observed data be denoted by $(X_i, A_i, Y_i)_(i=1)^(n)$, where $A_i in {0, 1}$ is the binary treatment indicator, $Y_i in bb(R)$ is the observed outcome, and $X_i in bb(R)^p$ represents the vector of covariates.
 
-We assume the availability of pre-computed nuisance function estimators: the conditional mean outcomes $(hat(mu)(1, X_i), hat(mu)(0, X_i))$ and the propensity score $hat(pi)(X_i)$. All these estimators map to the real line $bb(R)$.
+We assume the availability of pre-computed nuisance function estimators: the conditional mean outcomes $(hat(mu)(1, X_i), hat(mu)(0, X_i))$ and the propensity score $hat(pi)(X_i)$. All these estimators map to the real line $bb(R)$. In standard applications, $hat(mu)(dot)$ and $hat(pi)(dot)$ should be estimated using an independent sample to avoid overfitting bias.
 
 
 = Target formula
@@ -57,31 +57,34 @@ $
 $
   bb("BC")^("ATE")_m & = bb("HOIF")^1_m ( hat(Omega)^1) - bb("HOIF")^0_m ( hat(Omega)^0) \
   bb("HOIF")^a_m ( hat(Omega)^a) & = sum_(j=2)^m bb("IF")^a_j ( hat(Omega)^a) \
-  bb("IF")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in I_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) -(hat(Omega)^a)^(-1) ) hat(Omega)^a} s^a_(i_m) Z_(i_m) R^a_(i_m) \
+  bb("IF")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in J_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) {( Q^a_(i_s) -(hat(Omega)^a)^(-1) ) hat(Omega)^a} s^a_(i_m) Z_(i_m) R^a_(i_m) \
   & = sum_(j=2)^(m) binom(m-2, m-j) bb("U")^a_j ( hat(Omega)^a) \
-  bb("U")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in I_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) { Q^a_(i_s) hat(Omega)^a} s^a_(i_m) Z_(i_m) R^a_(i_m) \
-  & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in I_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) product_(s = 1)^(m-1) {Z_(i_s)^(top) hat(Omega)^a s^a_(i_(s+1)) Z_(i_(s+1)) } R^a_(i_m)
+  bb("U")^a_m ( hat(Omega)^a) & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in J_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) Z_(i_1)^(top) hat(Omega)^a product_(s = 2)^(m-1) { Q^a_(i_s) hat(Omega)^a} s^a_(i_m) Z_(i_m) R^a_(i_m) \
+  & = (-1)^m ((n-m)!) /(n!) sum_((i_1, dots, i_m) in J_1^(times.o m) : i_1 eq.not i_2 eq.not dots eq.not i_m) r^a_(i_1) product_(s = 1)^(m-1) {Z_(i_s)^(top) hat(Omega)^a s^a_(i_(s+1)) Z_(i_(s+1)) } R^a_(i_m)
 $
 
-Where
+The notation above involves the following components:
 $
-  I_1 "and" I_2 & "construct a partition of the index set" {1,2,dots,n} \
+       J_1, J_2 & subset.eq {1,2,dots,n}, \
               a & in {0,1}, \
         s^a_(i) & = A_i^a (1-A_i)^(1-a), \
         r^a_(i) & = 1 - s^a_(i) / ((hat(pi)(X_i))^a (1 - hat(pi)(X_i))^(1-a)), \
         R^a_(i) & = Y_i - hat(mu)(a,X_i), \
-            Z_i & = serif("transform")(X_i), \
-   hat(Omega)^a & = (1/(|I_2|) sum_(i in I_2) s^a_(i) Z_i Z_i^(top))^(-1), \
+            Z_i & = serif("transform")(X_i) in bb(R)^k, \
+        Q^a_(i) & = s^a_(i) Z_i Z_i^(top), \
+   hat(Omega)^a & = (1/(|J_2|) sum_(i in J_2) s^a_(i) Z_i Z_i^(top))^(-1), \
 $
 
+Here, we designate the sample in $J_1$ as the _estimation sample_ and the sample in $J_2$ as the _training sample_ for $hat(Omega)^a$. The function $serif("transform")(X_i)$ denotes a transformation of the covariates, with the transformed variable $Z_i$ taking values in $bb(R)^k$.
 
+*Sample Splitting (Cross-Fitting):* When employing $K$-fold sample splitting $(I_1, I_2, dots, I_K)$, for each fold $j in {1, dots, K}$, the sample in $I_j$ serves as the estimation sample (i.e., $I_j = J_1$), while samples not in $I_j$ form the training sample (i.e., $i in J_2 arrow.l.r.double i in.not I_j$). The training sample is used to compute $hat(Omega)^a$, which is then applied along with the estimation sample to calculate $bb("HOIF")^a_m$. The final estimator is obtained by averaging across all folds, yielding the empirical HOIF (eHOIF) estimator @liu2017semiparametric.
 
-When sample splitting in K folds :$(I_1,I_2,dots, I_K)$, then For j in (1 : K): denote sample in $I_j$ are estimation sample, no in $I_j$ are train sample. using the train sample to calculate $hat(Omega)$, and then using the trained $hat(Omega)$ and the estimation sample to calculate $bb("HOIF")^a_m$.
+*No Sample Splitting:* When sample splitting is not used, we simply set $J_1 = J_2$, using the entire dataset for both training and estimation, which corresponds to the stable HOIF (sHOIF) estimator @LiuLi2023_sHOIF.
 
 
 = The Integrated Algorithm (Main Interface)
 
-The whole function combines all the following steps to get the HOIF estiamtors for ATE. It serves as the primary entry point, orchestrating the data transformation, residual calculation, and the choice of cross-fitting strategy.
+The whole function combines all the following steps to get the HOIF bias-correction terms for the ATE. It serves as the primary entry point, orchestrating the data transformation, residual calculation, and the choice of cross-fitting strategy.
 
 *Function Inputs:*
 - Full observed data $(X_i, A_i, Y_i)_(i=1)^n$.
