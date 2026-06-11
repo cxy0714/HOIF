@@ -53,13 +53,37 @@ algorithm and its computational complexity are analyzed in:
 
 ### The HOIF Framework
 
-The HOIF estimator for ATE is defined as:
+Let ${\widehat{\psi}}_{a}^{AIPW}$ denote the standard first-order doubly
+robust (AIPW/DML) estimator of
+$\psi_{a} = E\left\lbrack Y(a) \right\rbrack$, and
+${\widehat{ATE}}^{AIPW} = {\widehat{\psi}}_{1}^{AIPW} - {\widehat{\psi}}_{0}^{AIPW}$.
+Conditional on the estimated nuisance functions, this estimator is
+biased; HOIF estimates the *estimable part* of that bias.
 
-$${{\mathbb{A}}{\mathbb{T}}{\mathbb{E}}}_{m}\left( {\widehat{\Omega}}^{a} \right) = {{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{1} - {{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{0}$$
+For each treatment arm $a \in \{ 0,1\}$, the $m$-th order HOIF
+**bias-correction term** is
 
-where for each treatment arm $a \in \{ 0,1\}$:
+$${{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{a}\left( {\widehat{\Omega}}^{a} \right) = \sum\limits_{j = 2}^{m}{{\mathbb{I}}{\mathbb{F}}}_{j}^{a}\left( {\widehat{\Omega}}^{a} \right) = \sum\limits_{i = 2}^{m}\sum\limits_{j = 2}^{i}\left( \frac{i - 2}{i - j} \right){\mathbb{U}}_{j}^{a}\left( {\widehat{\Omega}}^{a} \right),$$
 
-$${{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{a}\left( {\widehat{\Omega}}^{a} \right) = \sum\limits_{j = 2}^{m}{{\mathbb{I}}{\mathbb{F}}}_{j}^{a}\left( {\widehat{\Omega}}^{a} \right) = \sum\limits_{i = 2}^{m}\sum\limits_{j = 2}^{i}\left( \frac{i - 2}{i - j} \right){\mathbb{U}}_{j}^{a}\left( {\widehat{\Omega}}^{a} \right)$$
+and the corresponding correction for the ATE is their difference:
+
+$${{\mathbb{B}}{\mathbb{C}}}_{m}^{ATE} = {{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{1}\left( {\widehat{\Omega}}^{1} \right) - {{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{0}\left( {\widehat{\Omega}}^{0} \right).$$
+
+${{\mathbb{B}}{\mathbb{C}}}_{m}^{ATE}$ is the $m$-th order HOIF
+estimator of the estimable bias of the AIPW estimator of the ATE — it is
+**not** itself an estimator of the ATE. The sign convention is such that
+*adding* it to the AIPW estimate removes that bias:
+
+$${\widehat{ATE}}_{m} = {\widehat{ATE}}^{AIPW} + {{\mathbb{B}}{\mathbb{C}}}_{m}^{ATE}.$$
+
+In the output of
+[`hoif_ate()`](https://cxy0714.github.io/HOIF/reference/hoif_ate.md),
+the components `HOIF1`, `HOIF0` and `ATE` correspond to
+${{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{1}$,
+${{\mathbb{H}}{\mathbb{O}}{\mathbb{I}}{\mathbb{F}}}_{m}^{0}$ and
+${{\mathbb{B}}{\mathbb{C}}}_{m}^{ATE}$ for $m = 2,\ldots$ (the component
+name `ATE` is kept for backward compatibility — it holds the ATE *bias
+correction*, not the ATE itself).
 
 ### U-Statistics Formulation
 

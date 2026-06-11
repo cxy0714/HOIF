@@ -60,7 +60,7 @@
                         <h4 data-toc-skip class="author">Xingyu
 Chen</h4>
             
-            <h4 data-toc-skip class="date">2026-06-10</h4>
+            <h4 data-toc-skip class="date">2026-06-11</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/cxy0714/HOIF/blob/HEAD/vignettes/hoif-vignette.Rmd" class="external-link"><code>vignettes/hoif-vignette.Rmd</code></a></small>
       <div class="d-none name"><code>hoif-vignette.Rmd</code></div>
@@ -139,15 +139,47 @@ supports orders up to 6)</li>
 <div class="section level3">
 <h3 id="the-hoif-framework">The HOIF Framework<a class="anchor" aria-label="anchor" href="#the-hoif-framework"></a>
 </h3>
-<p>The HOIF estimator for ATE is defined as:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mrow><mi>𝔸</mi><mi>𝕋</mi><mi>𝔼</mi></mrow><mi>m</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mn>1</mn></msubsup><mo>−</mo><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mn>0</mn></msubsup></mrow><annotation encoding="application/x-tex">
-\mathbb{ATE}_m(\hat{\Omega}^a) = \mathbb{HOIF}^1_m - \mathbb{HOIF}^0_m
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mover><mi>ψ</mi><mo accent="true">̂</mo></mover><mi>a</mi><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">I</mi><mi mathvariant="normal">P</mi><mi mathvariant="normal">W</mi></mrow></msubsup><annotation encoding="application/x-tex">\widehat{\psi}_a^{\mathrm{AIPW}}</annotation></semantics></math>
+denote the standard first-order doubly robust (AIPW/DML) estimator of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ψ</mi><mi>a</mi></msub><mo>=</mo><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><mi>Y</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow></mrow><annotation encoding="application/x-tex">\psi_a = E[Y(a)]</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mover><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">T</mi><mi mathvariant="normal">E</mi></mrow><mo accent="true">̂</mo></mover><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">I</mi><mi mathvariant="normal">P</mi><mi mathvariant="normal">W</mi></mrow></msup><mo>=</mo><msubsup><mover><mi>ψ</mi><mo accent="true">̂</mo></mover><mn>1</mn><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">I</mi><mi mathvariant="normal">P</mi><mi mathvariant="normal">W</mi></mrow></msubsup><mo>−</mo><msubsup><mover><mi>ψ</mi><mo accent="true">̂</mo></mover><mn>0</mn><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">I</mi><mi mathvariant="normal">P</mi><mi mathvariant="normal">W</mi></mrow></msubsup></mrow><annotation encoding="application/x-tex">\widehat{\mathrm{ATE}}^{\mathrm{AIPW}} = \widehat{\psi}_1^{\mathrm{AIPW}} - \widehat{\psi}_0^{\mathrm{AIPW}}</annotation></semantics></math>.
+Conditional on the estimated nuisance functions, this estimator is
+biased; HOIF estimates the <em>estimable part</em> of that bias.</p>
+<p>For each treatment arm
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">a \in \{0,1\}</annotation></semantics></math>,
+the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>-th
+order HOIF <strong>bias-correction term</strong> is</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>2</mn></mrow><mi>m</mi></munderover><msubsup><mrow><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>j</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>2</mn></mrow><mi>m</mi></munderover><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>2</mn></mrow><mi>i</mi></munderover><mrow><mo stretchy="true" form="prefix">(</mo><mfrac linethickness="0"><mrow><mi>i</mi><mo>−</mo><mn>2</mn></mrow><mrow><mi>i</mi><mo>−</mo><mi>j</mi></mrow></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><msubsup><mi>𝕌</mi><mi>j</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
+\mathbb{HOIF}^a_m(\hat{\Omega}^a) = \sum_{j=2}^m \mathbb{IF}^a_j(\hat{\Omega}^a) = \sum_{i=2}^m \sum_{j=2}^{i} \binom{i-2}{i-j} \mathbb{U}^a_j(\hat{\Omega}^a),
 </annotation></semantics></math></p>
-<p>where for each treatment arm
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>a</mi><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">a \in \{0,1\}</annotation></semantics></math>:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>2</mn></mrow><mi>m</mi></munderover><msubsup><mrow><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>j</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>2</mn></mrow><mi>m</mi></munderover><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>2</mn></mrow><mi>i</mi></munderover><mrow><mo stretchy="true" form="prefix">(</mo><mfrac linethickness="0"><mrow><mi>i</mi><mo>−</mo><mn>2</mn></mrow><mrow><mi>i</mi><mo>−</mo><mi>j</mi></mrow></mfrac><mo stretchy="true" form="postfix">)</mo></mrow><msubsup><mi>𝕌</mi><mi>j</mi><mi>a</mi></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mi>a</mi></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">
-\mathbb{HOIF}^a_m(\hat{\Omega}^a) = \sum_{j=2}^m \mathbb{IF}^a_j(\hat{\Omega}^a) = \sum_{i=2}^m \sum_{j=2}^{i} \binom{i-2}{i-j} \mathbb{U}^a_j(\hat{\Omega}^a)
+<p>and the corresponding correction for the ATE is their difference:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mrow><mi>𝔹</mi><mi>ℂ</mi></mrow><mi>m</mi><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">T</mi><mi mathvariant="normal">E</mi></mrow></msubsup><mo>=</mo><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mn>1</mn></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mn>1</mn></msup><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mn>0</mn></msubsup><mrow><mo stretchy="true" form="prefix">(</mo><msup><mover><mi>Ω</mi><mo accent="true">̂</mo></mover><mn>0</mn></msup><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\mathbb{BC}^{\mathrm{ATE}}_m = \mathbb{HOIF}^1_m(\hat{\Omega}^1) - \mathbb{HOIF}^0_m(\hat{\Omega}^0).
 </annotation></semantics></math></p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mrow><mi>𝔹</mi><mi>ℂ</mi></mrow><mi>m</mi><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">T</mi><mi mathvariant="normal">E</mi></mrow></msubsup><annotation encoding="application/x-tex">\mathbb{BC}^{\mathrm{ATE}}_m</annotation></semantics></math>
+is the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>m</mi><annotation encoding="application/x-tex">m</annotation></semantics></math>-th
+order HOIF estimator of the estimable bias of the AIPW estimator of the
+ATE — it is <strong>not</strong> itself an estimator of the ATE. The
+sign convention is such that <em>adding</em> it to the AIPW estimate
+removes that bias:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">T</mi><mi mathvariant="normal">E</mi></mrow><mo accent="true">̂</mo></mover><mi>m</mi></msub><mo>=</mo><msup><mover><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">T</mi><mi mathvariant="normal">E</mi></mrow><mo accent="true">̂</mo></mover><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">I</mi><mi mathvariant="normal">P</mi><mi mathvariant="normal">W</mi></mrow></msup><mo>+</mo><msubsup><mrow><mi>𝔹</mi><mi>ℂ</mi></mrow><mi>m</mi><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">T</mi><mi mathvariant="normal">E</mi></mrow></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">
+\widehat{\mathrm{ATE}}_m = \widehat{\mathrm{ATE}}^{\mathrm{AIPW}} + \mathbb{BC}^{\mathrm{ATE}}_m .
+</annotation></semantics></math></p>
+<p>In the output of <code><a href="../reference/hoif_ate.html">hoif_ate()</a></code>, the components
+<code>HOIF1</code>, <code>HOIF0</code> and <code>ATE</code> correspond
+to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mn>1</mn></msubsup><annotation encoding="application/x-tex">\mathbb{HOIF}^1_m</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mrow><mi>ℍ</mi><mi>𝕆</mi><mi>𝕀</mi><mi>𝔽</mi></mrow><mi>m</mi><mn>0</mn></msubsup><annotation encoding="application/x-tex">\mathbb{HOIF}^0_m</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msubsup><mrow><mi>𝔹</mi><mi>ℂ</mi></mrow><mi>m</mi><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">T</mi><mi mathvariant="normal">E</mi></mrow></msubsup><annotation encoding="application/x-tex">\mathbb{BC}^{\mathrm{ATE}}_m</annotation></semantics></math>
+for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mo>=</mo><mn>2</mn><mo>,</mo><mi>…</mi></mrow><annotation encoding="application/x-tex">m = 2, \ldots</annotation></semantics></math>
+(the component name <code>ATE</code> is kept for backward compatibility
+— it holds the ATE <em>bias correction</em>, not the ATE itself).</p>
 </div>
 <div class="section level3">
 <h3 id="u-statistics-formulation">U-Statistics Formulation<a class="anchor" aria-label="anchor" href="#u-statistics-formulation"></a>
