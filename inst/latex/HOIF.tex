@@ -1,0 +1,247 @@
+\documentclass[12pt]{article}
+\usepackage[margin=1.75in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{parskip}
+
+% Font setup
+\usepackage{lmodern}
+
+% Paragraph formatting
+\setlength{\parindent}{1.8em}
+\setlength{\parskip}{0.55em}
+\raggedright
+\makeatletter
+\renewcommand{\section}{\@startsection{section}{1}{\z@}%
+  {1.4em \@plus 1ex \@minus .2ex}%
+  {1em \@plus .2ex}%
+  {\normalfont\Large\bfseries}}
+\makeatother
+
+% Custom commands
+\newcommand{\ustat}{\href{https://github.com/cxy0714/U-Statistics-R}{\textrm{ustat}}}
+
+% Title information
+\title{\textbf{Algorithm of HOIF estimators for ATE}}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\section{Input Data}
+
+Denote the observed data by $(X_i, A_i, Y_i)_{i=1}^{n}$, where $A_i \in \{0, 1\}$ is the binary treatment indicator, $Y_i \in \mathbb{R}$ is the observed outcome, and $X_i \in \mathbb{R}^p$ represents the vector of covariates.
+
+We assume the availability of pre-computed nuisance function estimators: the conditional mean outcomes $(\hat{\mu}(1, X_i), \hat{\mu}(0, X_i))$ and the propensity score $\hat{\pi}(X_i)$. All these estimators map to the real line $\mathbb{R}$. In standard applications, $\hat{\mu}(\cdot)$ and $\hat{\pi}(\cdot)$ should be estimated using an independent sample to avoid overfitting bias.
+
+\section{Target Formula}
+
+The core function \texttt{hoif\_ate()} in this $R$ package computes the estimators described below.
+
+Let $\hat{\psi}^{\mathrm{AIPW}}_a$ denote the standard first-order doubly robust estimator (also known as double machine learning or AIPW estimator) of $\psi_a = \mathbb{E}[Y(a)]$, and let $\widehat{\mathrm{ATE}}^{\mathrm{AIPW}} = \hat{\psi}^{\mathrm{AIPW}}_1 - \hat{\psi}^{\mathrm{AIPW}}_0$. Conditional on the estimated nuisance functions, this estimator is biased.
+
+The quantity $\mathbb{BC}^{\mathrm{ATE}}_m$ is the $m$-th order higher order influence function (HOIF) estimator of the \emph{estimable bias} of the AIPW estimator of the average treatment effect (ATE) in causal inference. This methodology was developed through a series of works by James M. Robins and his collaborators \cite{Robins2008_HOIF,Robins2017_Minimax,liu2017semiparametric,LiuLi2023_sHOIF}. It is \emph{not} itself an estimator of the ATE; the sign convention is such that adding it to the AIPW estimate removes the estimable bias:
+\begin{equation*}
+  \widehat{\mathrm{ATE}}_m = \widehat{\mathrm{ATE}}^{\mathrm{AIPW}} + \mathbb{BC}^{\mathrm{ATE}}_m.
+\end{equation*}
+(In the output of \texttt{hoif\_ate()}, the components \texttt{HOIF1}, \texttt{HOIF0} and \texttt{ATE} correspond to $\mathbb{HOIF}^1_m$, $\mathbb{HOIF}^0_m$ and $\mathbb{BC}^{\mathrm{ATE}}_m$; the component name \texttt{ATE} is kept for backward compatibility --- it holds the ATE \emph{bias correction}, not the ATE itself.)
+
+The estimators are defined as follows:
+\begin{align*}
+  \mathbb{BC}^{\mathrm{ATE}}_m &= \mathbb{HOIF}^1_m(\hat{\Omega}^1) - \mathbb{HOIF}^0_m(\hat{\Omega}^0), \\
+  \mathbb{HOIF}^a_m(\hat{\Omega}^a) &= \sum_{j=2}^m \mathbb{IF}^a_j(\hat{\Omega}^a) = \sum_{i=2}^m \sum_{j=2}^{i} \binom{i-2}{i-j} \mathbb{U}^a_j(\hat{\Omega}^a),
+\end{align*}
+where
+\begin{align*}
+    \mathbb{IF}^a_m(\hat{\Omega}^a) &= (-1)^m \frac{(n-m)!}{n!} \sum_{\substack{(i_1, \ldots, i_m) \in J_1^{\times m} : \\ i_1 \neq i_2 \neq \cdots \neq i_m}} r^a_{i_1} Z_{i_1}^\top \hat{\Omega}^a \prod_{s = 2}^{m-1} \{(Q^a_{i_s} - (\hat{\Omega}^a)^{-1}) \hat{\Omega}^a\} s^a_{i_m} Z_{i_m} R^a_{i_m}, \\
+  \mathbb{U}^a_m(\hat{\Omega}^a) &= (-1)^m \frac{(n-m)!}{n!} \sum_{\substack{(i_1, \ldots, i_m) \in J_1^{\times m} : \\ i_1 \neq i_2 \neq \cdots \neq i_m}} r^a_{i_1} Z_{i_1}^\top \hat{\Omega}^a \prod_{s = 2}^{m-1} \{Q^a_{i_s} \hat{\Omega}^a\} s^a_{i_m} Z_{i_m} R^a_{i_m} \\
+  &= (-1)^m \frac{(n-m)!}{n!} \sum_{\substack{(i_1, \ldots, i_m) \in J_1^{\times m} : \\ i_1 \neq i_2 \neq \cdots \neq i_m}} r^a_{i_1} \prod_{s = 1}^{m-1} \{Z_{i_s}^\top \hat{\Omega}^a s^a_{i_{s+1}} Z_{i_{s+1}}\} R^a_{i_m}.
+\end{align*}
+
+The notation above involves the following components:
+\begin{align*}
+  J_1, J_2 & \subseteq \{1,2,\ldots,n\}, \\
+  a &\in \{0,1\}, \\
+  s^a_{i} &= A_i^a (1-A_i)^{1-a}, \\
+  r^a_{i} &= 1 - s^a_i / \left((\hat{\pi}(X_i))^a (1 - \hat{\pi}(X_i))^{1-a}\right), \\
+  R^a_{i} &= Y_i - \hat{\mu}(a,X_i), \\
+  Z_i &= \text{transform}(X_i) \in \mathbb{R}^k, \\
+   Q^a_{i} & =  s^a_{i} Z_i Z_i^{\top} , \\
+  \hat{\Omega}^a &= \left(\frac{1}{|J_2|} \sum_{i \in J_2} s^a_{i} Z_i Z_i^\top\right)^{-1}.
+\end{align*}
+
+Here, we designate the sample in $J_1$ as the \textit{estimation sample} and the sample in $J_2$ as the \textit{training sample} for $\hat{\Omega}^a$. The function $\text{transform}(X_i)$ denotes a transformation of the covariates, with the transformed variable $Z_i$ taking values in $\mathbb{R}^{k}$.
+
+\paragraph{Sample Splitting (Cross-Fitting):}
+When employing $K$-fold sample splitting $(I_1,I_2,\ldots, I_K)$, for each fold $j \in \{1, \ldots, K\}$, the sample in $I_j$ serves as the estimation sample (i.e., $I_j = J_1$), while samples not in $I_j$ form the training sample (i.e., $i \in J_2 \Leftrightarrow i \notin I_j$). The training sample is used to compute $\hat{\Omega}^a$, which is then applied along with the estimation sample to calculate $\mathbb{HOIF}^a_m$. The final estimator is obtained by averaging across all folds, yielding the empirical HOIF (eHOIF) estimator \cite{liu2017semiparametric}.
+
+\paragraph{No Sample Splitting:}
+When sample splitting is not used, we simply set $J_1 = J_2$, using the entire dataset for both training and estimation, which corresponds to the stable HOIF (sHOIF) estimator \cite{LiuLi2023_sHOIF}.
+
+
+\section{The Integrated Algorithm (Main Interface)}
+
+The whole function combines all the following steps to get the HOIF bias-correction terms for the ATE. It serves as the primary entry point, orchestrating the data transformation, residual calculation, and the choice of cross-fitting strategy.
+
+\textbf{Function Inputs:}
+\begin{itemize}
+  \item Full observed data $(X_i, A_i, Y_i)_{i=1}^n$.
+  \item Nuisance function estimators $(\hat{\mu}(1, X_i), \hat{\mu}(0, X_i), \hat{\pi}(X_i))$.
+  \item Transformation method and its tuning parameters.
+  \item Inverse method of weighted Gram matrix.
+  \item Maximum HOIF order $m$ and \ustat{} backend.
+  \item \textbf{Switch}: A boolean flag for sample splitting and the number of splits $K$.
+\end{itemize}
+
+\textbf{Procedure:}
+
+\begin{enumerate}
+  \item \textbf{Global Pre-processing}:
+  \begin{itemize}
+    \item Transform the covariates $X_i$ on the whole data to obtain basis functions $(Z_i)_{i=1}^n$.
+    \item Compute the global residuals $((R_i^1, r_i^1), (R_i^0, r_i^0))_{i=1}^n$.
+  \end{itemize}
+
+  \item \textbf{Branching Logic}:
+  \begin{itemize}
+    \item \textit{If not using sample splitting}:
+
+    Proceed with the entire dataset using the steps described in the following sections. Output $(\mathrm{BC}^{\mathrm{ATE}}_l, \text{HOIF}_l^a, \text{IIFF}_l^a)$ for $l = 2, \ldots, m$ and $a \in \{0,1\}$ (returned by the package as \texttt{ATE}, \texttt{HOIF1}/\texttt{HOIF0}, \texttt{IIFF1}/\texttt{IIFF0}).
+
+    \item \textit{If using sample splitting (Cross-fitting)}:
+    \begin{enumerate}
+      \item Split the indices $\{1, \ldots, n\}$ into $K$ disjoint parts $(I_1, I_2, \ldots, I_K)$.
+      \item \textbf{For each fold} $j = 1, \ldots, K$:
+      \begin{itemize}
+        \item \textbf{Training}: Use data with indices not in $I_j$ ($i \notin I_j$) to compute the inverse Gram matrices $(\Omega_{1,j}, \Omega_{0,j})$.
+        \item \textbf{Estimation}: Use data with indices in $I_j$ ($i \in I_j$) and the pre-computed $(\Omega_{1,j}, \Omega_{0,j})$ to compute:
+        \begin{itemize}
+          \item Local projection matrices $(B_{1,j}, B_{0,j})$.
+          \item Local HOIF bias-correction terms $(\mathrm{BC}^{\mathrm{ATE}}_{l,j}, \text{HOIF}_{l,j}^a, \text{IIFF}_{l,j}^a)$ for $l = 2, \ldots, m$.
+        \end{itemize}
+      \end{itemize}
+      \item \textbf{Aggregation}: Average the results across all $K$ folds:
+      \begin{equation}
+        \mathrm{BC}^{\mathrm{ATE}}_l = \frac{1}{K} \sum_{j=1}^{K} \mathrm{BC}^{\mathrm{ATE}}_{l,j}, \quad \text{HOIF}_l^a = \frac{1}{K} \sum_{j=1}^{K} \text{HOIF}_{l,j}^a, \quad \text{IIFF}_l^a = \frac{1}{K} \sum_{j=1}^{K} \text{IIFF}_{l,j}^a
+      \end{equation}
+    \end{enumerate}
+  \end{itemize}
+\end{enumerate}
+
+\textbf{Output:} Final averaged bias-correction terms $(\mathrm{BC}^{\mathrm{ATE}}_l, \text{HOIF}_l^a, \text{IIFF}_l^a)$ for $l = 2, \ldots, m$.
+
+\section{Step-by-Step Technical Notes}
+
+\subsection{Transformation of Covariates}
+
+First, we transform the covariates $X_i$ into a set of basis functions $Z_i \in \mathbb{R}^k$. Common choices include B-splines or Fourier basis functions.
+
+\textbf{Function Requirement:}
+\begin{itemize}
+  \item \textit{Input}: Covariate matrix $X$, the transformation method (e.g., Fourier or B-splines), and relevant tuning parameters (including the basis dimension $k$).
+  \item \textit{Output}: The transformed basis matrix $Z \in \mathbb{R}^{n \times k}$, where each row $Z_i$ corresponds to the $i$-th observation.
+\end{itemize}
+
+\subsection{Compute the Residuals}
+
+Next, we compute two pairs of residuals, indexed by the treatment assignment $a \in \{0,1\}$.
+
+For the treatment group ($a = 1$):
+\begin{align*}
+  R_i^1 &= Y_i - \hat{\mu}(1,X_i) \\
+  r_i^1 &= 1 - A_i / \hat{\pi}(X_i)
+\end{align*}
+
+For the control group ($a = 0$):
+\begin{align*}
+  R_i^0 &= Y_i - \hat{\mu}(0,X_i) \\
+  r_i^0 &= 1 - (1 - A_i) / (1 - \hat{\pi}(X_i))
+\end{align*}
+
+(The treatment indicator $s^a_i$ is \emph{not} folded into $R^a_i$ here; it enters through the projection matrix $B^a$ below, matching the implementation.)
+
+\textbf{Function Requirement:}
+\begin{itemize}
+  \item \textit{Input}: Observed data $(A, Y)$ and estimated nuisance functions $(\hat{\mu}(1,X), \hat{\mu}(0,X), \hat{\pi}(X))$.
+  \item \textit{Output}: Two residual pairs $((R_i^1, r_i^1))_{i=1}^n$ and $((R_i^0, r_i^0))_{i=1}^n$.
+\end{itemize}
+
+\subsection{Compute the Inverse of the Weighted Gram Matrix}
+
+Compute the inverse of the weighted Gram matrix $G_a$ for each $a \in \{0,1\}$:
+\begin{equation}
+G_a = \frac{1}{n} \sum_{i=1}^{n} s_i^a Z_i Z_i^T,
+\end{equation}
+where $s_i^a = A_i^a (1 - A_i)^{1-a}$ serves as the indicator for the $a$-th group. Let $\Omega_a = G_a^{-1}$ denote the corresponding inverse matrix.
+
+Several estimation methods can be employed for $\Omega_a$, such as direct inversion (e.g., using \texttt{chol2inv()} in R for efficiency) or shrinkage estimators (e.g., via the \texttt{nlshrink} or \texttt{corpcor} R packages) to improve numerical stability in high-dimensional settings.
+
+\textbf{Function Requirement:}
+\begin{itemize}
+  \item \textit{Input}: Basis functions $Z$, treatment indicators $A$, and the inversion method (\texttt{direct}, \texttt{nlshrink}, or \texttt{corpcor}).
+  \item \textit{Output}: A pair of inverse matrices $(\Omega_1, \Omega_0)$.
+\end{itemize}
+
+\subsection{Compute the Projection Matrix}
+
+Compute the projection-like basis matrix $B^a$ for each $a \in \{0,1\}$:
+\begin{equation}
+B^a = Z \Omega_a (s^a \odot Z)^T, \quad \text{i.e.} \quad B^a_{ij} = Z_i^\top \Omega_a\, s^a_j Z_j,
+\end{equation}
+where $Z \in \mathbb{R}^{n \times k}$ is the matrix of basis functions and $s^a \odot Z$ multiplies row $j$ of $Z$ by $s^a_j$ (in code: \texttt{B1 = Z \%*\% Omega1 \%*\% t(Z * A)}). Note that $B^a$ is an $n \times n$ matrix carrying the treatment indicator on its second index.
+
+\textbf{Function Requirement:}
+\begin{itemize}
+  \item \textit{Input}: Basis matrix $Z$ and the inverse matrices $(\Omega_1, \Omega_0)$.
+  \item \textit{Output}: Basis matrices $(B^1, B^0)$.
+\end{itemize}
+
+\subsection{Compute the HOIF Estimators}
+
+Finally, we compute the HOIF bias-correction terms for the ATE.
+
+\textbf{Function Requirement:}
+\begin{itemize}
+  \item \textit{Input}:
+  \begin{itemize}
+    \item Maximum order $m$.
+    \item Residual pairs $((R_i^a, r_i^a))_{a \in \{0,1\}}$.
+    \item Projection matrices $(B^1, B^0)$.
+    \item Backend for \ustat{} (\texttt{numpy} or \texttt{torch}).
+  \end{itemize}
+
+  \item \textit{Procedure}:
+
+  For each order $j$ from $2$ to $m$, and for each treatment assignment $a \in \{0,1\}$, calculate the $U$-statistics:
+  \begin{equation}
+    \text{U}_j^{a} = (-1)^j \text{ \ustat}(\text{tensors} = T_j^a, \text{expression} = E_j^a, \text{backend} = \text{``backend''}, \text{average} = 1)
+  \end{equation}
+
+  The tensors $T_j^a$ and index expressions $E_j^a$ are defined as:
+  \begin{align*}
+    T_j^a &= (r^a, \underbrace{B^a, \ldots, B^a}_{j-1 \text{ times}}, R^a) \\
+    E_j^a &= (1, (1,2), \ldots, (j-1, j), j)
+  \end{align*}
+  so that the first tensor $r^a$ is indexed by $i_1$ and the last tensor $R^a$ by $i_j$, matching the target formula.
+
+  Then, for each order $l \in \{2, \ldots, m\}$, compute:
+  \begin{align*}
+    \text{IIFF}_l^a &= \sum_{j=2}^{l} \binom{l-2}{l-j} \text{U}_j^{a} \\
+    \text{HOIF}_l^a &= \sum_{j=2}^{l} \text{IIFF}_j^a \\
+    \mathrm{BC}^{\mathrm{ATE}}_l &= \text{HOIF}_l^1 - \text{HOIF}_l^0
+  \end{align*}
+
+  \item \textit{Output}: $(\mathrm{BC}^{\mathrm{ATE}}_l, \text{HOIF}_l^a, \text{IIFF}_l^a)$ for $l = 2, \ldots, m$, returned by the package as \texttt{ATE}, \texttt{HOIF1}/\texttt{HOIF0} and \texttt{IIFF1}/\texttt{IIFF0}.
+\end{itemize}
+
+\bibliographystyle{plain}
+\bibliography{Master}
+
+\end{document}
